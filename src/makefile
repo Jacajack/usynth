@@ -8,7 +8,7 @@ CFLAGS = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -mmcu=
 
 all: usynth.elf
 
-usynth.elf: usynth.c ppg/ppg_data.c ppg/ppg.c
+usynth.elf: usynth.c midi.c notes.c ppg/ppg_data.c ppg/ppg.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 clean:
