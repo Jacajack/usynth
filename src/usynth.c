@@ -2,9 +2,11 @@
 #include <avr/interrupt.h>
 #include <inttypes.h>
 
-#include "ppg/ppg.h"
-#include "midi.h"
+#include "config.h"
 #include "notes.h"
+#include "midi.h"
+#include "ppg/ppg_osc.h"
+#include "eg.h"
 
 #ifndef F_CPU
 #error F_CPU is not defined!
@@ -20,10 +22,11 @@
 #endif
 
 
-
 #define LED_1_PIN 2
 #define LED_2_PIN 3
 #define LED_3_PIN 4
+
+#define LED_RED_PIN LED_1_PIN
 
 #define LDAC_PIN  1
 #define CS_PIN    2
@@ -64,76 +67,14 @@ ISR(TIMER1_COMPB_vect)
 	dac_sent = 1;
 }
 
-#define USYNTH_EG_IDLE    0
-#define USYNTH_EG_ATTACK  1
-#define USYNTH_EG_SUSTAIN 2
-#define USYNTH_EG_RELEASE 3
-
-typedef struct usynth_eg
-{
-	uint16_t attack;
-	uint16_t sustain;
-	uint16_t release;
-	
-	uint16_t value;
-	uint16_t output;
-	
-	uint8_t status;
-} usynth_eg;
-
-
-static inline uint16_t usynth_eg_update(usynth_eg *eg, uint8_t gate)
-{
-	switch (eg->status)
-	{
-		case USYNTH_EG_IDLE:
-			if (gate) eg->status = USYNTH_EG_ATTACK;
-			break;
-				
-		case USYNTH_EG_ATTACK:
-			if (!gate) eg->status = USYNTH_EG_RELEASE;
-			else
-			{
-				if (UINT16_MAX - eg->attack < eg->value)
-				{
-					eg->value = UINT16_MAX;
-					eg->status = USYNTH_EG_SUSTAIN;
-				}
-				else
-				{
-					eg->value += eg->attack;
-				}
-			}
-			break;
-			
-		case USYNTH_EG_SUSTAIN:
-			if (!gate) eg->status = USYNTH_EG_RELEASE;
-			break;
-		
-		case USYNTH_EG_RELEASE:
-			if (gate)
-			{
-				eg->value = 0;
-				eg->status = USYNTH_EG_ATTACK;
-			}
-			else
-			{
-				if (eg->value < eg->release)
-				{
-					eg->value = 0;
-					eg->status = USYNTH_EG_IDLE;
-				}
-				else
-				{
-					eg->value -= eg->release;
-				}
-			}
-			break;
-	}
-	
-	eg->output = (eg->value * (uint32_t) eg->sustain) >> 16;
-	return eg->output;
-}	
+// Globals
+static midi_status midi;
+static ppg_osc_bank osc_bank;
+static usynth_eg_bank eg_bank = {
+	.attack = 32000,
+	.release = 40,
+	.sustain = 65535,
+};
 
 
 int main(void)
@@ -165,30 +106,17 @@ int main(void)
 	TCCR1A = (1 << COM1B0) | (1 << COM1B1);
 	TCCR1C |= (1 << FOC1B);
 	TCCR1A = (1 << COM1B1);
-	
-	
-	/*
-		USART0 - MIDI, 8 bit data, 1 bit stop, no parity
-	*/
+
+	// USART0 - MIDI, 8 bit data, 1 bit stop, no parity
 	UBRR0 = F_CPU / 16 / MIDI_BAUD - 1;
 	UCSR0B = (1 << RXEN0) | (1 << TXEN0);
 	UCSR0C = (1 << UCSZ00) | (1<< UCSZ01);
 	
-	wavetable_entry wt[DEFAULT_WAVETABLE_SIZE];
-	load_wavetable_n(wt, DEFAULT_WAVETABLE_SIZE, ppg_wavetable, 1);
+	// -------------- HW init done
 
-	midi_status midi;
-	
-	usynth_eg eg = {
-		.status = USYNTH_EG_IDLE,
-		.attack = 65535,
-		.release = 40,
-		.sustain = 65535,
-		.value = 0
-	};
-	
-	usynth_eg eg2 = eg;
-	
+	midi_init(&midi);
+	ppg_osc_bank_load_wavetable(&osc_bank, 4);
+
 	sei();
 	
 	// The main loop
@@ -197,49 +125,40 @@ int main(void)
 	{
 		// Check incoming USART data and process it
 		if (UCSR0A & (1 << RXC0))
-			midiproc(&midi, UDR0, 0);
-		
-		
-		static uint16_t phase_step = 0, phase_step2 = 0;
-		phase_step = pgm_read_word(midi_notes + midi.voices[0].note);
-		phase_step2 = pgm_read_word(midi_notes + midi.voices[1].note);
-
+			midi_process_byte(&midi, UDR0, 0);
 		
 		// Slow calculations done each 16 samples
 		if (slow_cnt++ == 16)
 		{
 			slow_cnt = 0;
-			usynth_eg_update(&eg, midi.voices[0].gate);
-			usynth_eg_update(&eg2, midi.voices[1].gate);
+			eg_bank.eg[0].gate = midi.voices[0].gate;
+			eg_bank.eg[1].gate = midi.voices[1].gate;
+			usynth_eg_bank_update(&eg_bank);
 		}
-		
-		// if (midi.noteon)
-		// 	PORTD |= (1 << LED_1_PIN);
-		// else
-		// 	PORTD &= ~(1 << LED_1_PIN);
-		
+
 		static uint16_t t = 0;
 		static int8_t dt = 0;
-		static uint16_t phase = 0, phase2 = 0;
-// 		uint16_t phase_step = pgm_read_word(midi_notes + midi.note);
-		
-		uint8_t n = 64 - (eg.output >> 10);
-		n = n > 60 ? 60 : n;
-		
-		uint8_t n2 = 64 - (eg2.output >> 10);
-		n2 = n2 > 60 ? 60 : n2;
-		
-		dac_data = ((get_wavetable_sample(wt + n, phase) * (uint32_t)eg.output) >> 17)
-			+ ((get_wavetable_sample(wt + n2, phase2) * (uint32_t)eg2.output) >> 17);
-		
-		phase += phase_step;
-		phase2 += phase_step2;
-		
 		if (t == 0) dt = 1;
 		else if (t == 65535) dt = -1;
 		t += dt;
 		
-		// Wait for sent flag and clear it
+		uint8_t n = 64 - (eg_bank.eg[0].output >> 10);
+		n = n > 60 ? 60 : n;
+		
+		uint8_t n2 = 64 - (eg_bank.eg[1].output >> 10);
+		n2 = n2 > 60 ? 60 : n2;
+		
+		osc_bank.osc[0].wave = n;
+		osc_bank.osc[1].wave = n2;
+
+		osc_bank.osc[0].phase_step = pgm_read_word(midi_notes + midi.voices[0].note);
+		osc_bank.osc[1].phase_step = pgm_read_word(midi_notes + midi.voices[1].note);
+		ppg_osc_bank_update(&osc_bank);
+
+		dac_data = ((osc_bank.osc[0].output * (uint32_t)eg_bank.eg[0].output) >> 17)
+			+ ((osc_bank.osc[1].output * (uint32_t)eg_bank.eg[1].output) >> 17);
+		
+		// Wait for the 'sent' flag and clear it
 		while (!dac_sent);
 		dac_sent = 0;
 	}

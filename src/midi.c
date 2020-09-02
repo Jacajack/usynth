@@ -1,6 +1,22 @@
 #include <stddef.h>
 #include <inttypes.h>
+#include <string.h>
 #include "midi.h"
+
+void midi_init(midi_status *midi)
+{
+	midi->dlim = 0;
+	midi->dcnt = 0;
+	midi->status = 0;
+	midi->channel = 0;
+
+	midi->program = 0;
+	midi->pitchbend = 16384;
+	midi->reset = 0;
+
+	memset(midi->voices, 0, sizeof(midi_voice));
+	memset(midi->control, 0, 128);
+}
 
 /**
 	Finds an empty voice slot and uses it or overwrites the oldest
@@ -54,7 +70,7 @@ static inline void midi_note_off(midi_status *midi, uint8_t note)
 			midi->voices[i].gate = 0;
 }
 
-void midiproc(midi_status *midi, uint8_t byte, uint8_t channel)
+void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t channel)
 {
 	uint8_t dlim, dcnt, status;
 
@@ -133,7 +149,7 @@ void midiproc(midi_status *midi, uint8_t byte, uint8_t channel)
 
 				// Controller change
 				case 0x30:
-					midi->controllers.raw[midi->dbuf[0]] = midi->dbuf[1];
+					midi->control[midi->dbuf[0]] = midi->dbuf[1];
 					break;
 
 				// Program change

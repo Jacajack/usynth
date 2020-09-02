@@ -6,10 +6,10 @@
 	Load a wavetable stored in PPG Wave 2.2 format into an array of wavetable_entry structs of size wavetable_size
 	Returns a pointer to the next wavetable
 */
-const uint8_t *load_wavetable(struct wavetable_entry *entries, uint8_t wavetable_size, const uint8_t *data)
+const uint8_t *ppg_load_wavetable(ppg_wavetable_entry *entries, uint8_t wavetable_size, const uint8_t *data)
 {
 	// Wipe the wavetable
-	memset(entries, 0, wavetable_size * sizeof(struct wavetable_entry));
+	memset(entries, 0, wavetable_size * sizeof(ppg_wavetable_entry));
 
 	// The fist byte is ignored
 	data++;
@@ -21,7 +21,7 @@ const uint8_t *load_wavetable(struct wavetable_entry *entries, uint8_t wavetable
 		waveform = pgm_read_byte(data++);
 		pos = pgm_read_byte(data++);
 
-		entries[pos].ptr_l = get_waveform_pointer(waveform);
+		entries[pos].ptr_l = ppg_get_waveform_pointer(waveform);
 		entries[pos].ptr_r = NULL;
 		entries[pos].factor = 0;
 		entries[pos].is_key = 1;
@@ -29,7 +29,7 @@ const uint8_t *load_wavetable(struct wavetable_entry *entries, uint8_t wavetable
 	while (pos < wavetable_size - 1);
 
 	// Now, generate interpolation coefficients
-	const struct wavetable_entry *el = NULL, *er = NULL;
+	const ppg_wavetable_entry *el = NULL, *er = NULL;
 	for (uint8_t i = 0; i < wavetable_size; i++)
 	{
 		// If the current entry contains a key-wave
@@ -70,10 +70,10 @@ const uint8_t *load_wavetable(struct wavetable_entry *entries, uint8_t wavetable
 //! Loads n-th requested wavetable from binary format
 //! Not very efficient, but it doesn't need to be.
 //! \see load_wavetable()
-const uint8_t *load_wavetable_n(struct wavetable_entry *entries, uint8_t wavetable_size, const uint8_t *data, uint8_t index)
+const uint8_t *ppg_load_wavetable_n(ppg_wavetable_entry *entries, uint8_t wavetable_size, const uint8_t *data, uint8_t index)
 {
 	for ( uint8_t i = 0; i < index + 1; i++ )
-		data = load_wavetable(entries, wavetable_size, data);
+		data = ppg_load_wavetable(entries, wavetable_size, data);
 	return data;
 }
 
