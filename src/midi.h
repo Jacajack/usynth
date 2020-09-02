@@ -2,20 +2,30 @@
 #define MIDI_H
 #include <inttypes.h>
 
-typedef struct midistatus
+#define MIDI_VOICES 2
+
+typedef struct midi_voice
 {
-	// Interpreter internal state
+	uint8_t note;
+	uint8_t velocity;
+	uint8_t gate;
+	uint8_t age;
+} midi_voice;
+
+typedef struct midi_status
+{
+	// Internal state of the interpreter
 	uint8_t dlim;
 	uint8_t dcnt;
 	uint8_t status;
 	uint8_t channel;
 	uint8_t dbuf[4];
 
+	// Per voice controls
+	midi_voice voices[MIDI_VOICES];
+
 	// Basic MIDI controls
 	uint8_t program;
-	uint8_t noteon;
-	uint8_t notevel;
-	uint8_t note;
 	uint16_t pitchbend;
 	uint8_t reset;
 
@@ -159,8 +169,8 @@ typedef struct midistatus
 
 		uint8_t raw[128];
 	} controllers;
-} midistatus;
+} midi_status;
 
-extern void midiproc(struct midistatus *midi, uint8_t byte, uint8_t channel);
+extern void midiproc(struct midi_status *midi, uint8_t byte, uint8_t channel);
 
 #endif
