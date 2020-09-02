@@ -6,13 +6,24 @@ MCU = atmega328p
 CC = avr-gcc
 CFLAGS = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -mmcu=$(MCU) -O3 -funroll-loops -flto
 
+SOURCES = usynth.c midi.c notes.c ppg/ppg_data.c ppg/ppg.c
+OBJECTS = $(patsubst %.c,%.o,$(SOURCES))
+DEPENDS = $(patsubst %.c,%.d,$(SOURCES))
+
+.PHONY: all clean
+
 all: usynth.elf
 
-usynth.elf: usynth.c midi.c notes.c ppg/ppg_data.c ppg/ppg.c
+clean:
+	-rm usynth.elf $(OBJECTS) $(DEPENDS)
+
+usynth.elf: $(OBJECTS)
 	$(CC) $(CFLAGS) $^ -o $@
 
-clean:
-	-rm usynth.elf
-	
 prog: usynth.elf
 	avrdude -c usbasp -p m328p -U flash:w:usynth.elf
+
+-include $(DEPENDS)
+
+%.o: %.c makefile
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
