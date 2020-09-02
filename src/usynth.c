@@ -177,7 +177,7 @@ int main(void)
 	wavetable_entry wt[DEFAULT_WAVETABLE_SIZE];
 	load_wavetable_n(wt, DEFAULT_WAVETABLE_SIZE, ppg_wavetable, 1);
 
-	midistatus midi;
+	midi_status midi;
 	
 	usynth_eg eg = {
 		.status = USYNTH_EG_IDLE,
@@ -193,7 +193,6 @@ int main(void)
 	
 	// The main loop
 	uint8_t slow_cnt = 0;
-	uint8_t sw = 0, last_gate = 0;
 	while (1)
 	{
 		// Check incoming USART data and process it
@@ -202,33 +201,22 @@ int main(void)
 		
 		
 		static uint16_t phase_step = 0, phase_step2 = 0;
-		if (!last_gate && midi.noteon)
-		{
-			if (sw)
-			{
-				phase_step = pgm_read_word(midi_notes + midi.note);
-			}
-			else
-			{
-				phase_step2 = pgm_read_word(midi_notes + midi.note);
-			}
-			
-			sw = !sw;
-		}
-		last_gate = midi.noteon;
+		phase_step = pgm_read_word(midi_notes + midi.voices[0].note);
+		phase_step2 = pgm_read_word(midi_notes + midi.voices[1].note);
+
 		
 		// Slow calculations done each 16 samples
 		if (slow_cnt++ == 16)
 		{
 			slow_cnt = 0;
-			usynth_eg_update(&eg, midi.noteon && sw);
-			usynth_eg_update(&eg2, midi.noteon && !sw);
+			usynth_eg_update(&eg, midi.voices[0].gate);
+			usynth_eg_update(&eg2, midi.voices[1].gate);
 		}
 		
-		if (midi.noteon)
-			PORTD |= (1 << LED_1_PIN);
-		else
-			PORTD &= ~(1 << LED_1_PIN);
+		// if (midi.noteon)
+		// 	PORTD |= (1 << LED_1_PIN);
+		// else
+		// 	PORTD &= ~(1 << LED_1_PIN);
 		
 		static uint16_t t = 0;
 		static int8_t dt = 0;
