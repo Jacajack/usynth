@@ -9,28 +9,28 @@
 static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocity)
 {
 	uint8_t oldest_empty_slot = MIDI_VOICES;
-	uint8_t oldest_empty = 0;
 	uint8_t oldest_active_slot = 0;
-	uint8_t oldest_active = 0;
+	int8_t oldest_empty = -1;
+	int8_t oldest_active = -1;
 
 	for (uint8_t i = 0; i < MIDI_VOICES; i++)
 	{
-		uint8_t age = midi->voices[i].age;
+		int8_t age = midi->voices[i].age;
 
-		if (!midi->voices[i].gate)
-		{
-			if (age > oldest_empty)
-			{
-				oldest_empty_slot = i;
-				oldest_empty = age;
-			}
-		}
-		else 
+		if (midi->voices[i].gate)
 		{
 			if (age > oldest_active)
 			{
 				oldest_active_slot = i;
 				oldest_active = midi->voices[i].age;
+			}
+		}
+		else 
+		{
+			if (age > oldest_empty)
+			{
+				oldest_empty_slot = i;
+				oldest_empty = age;
 			}
 		}
 	}
@@ -44,7 +44,7 @@ static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocit
 	midi->voices[slot].gate = 1;
 	midi->voices[slot].note = note;
 	midi->voices[slot].velocity = velocity;
-	midi->voices[slot].age = 0;
+	midi->voices[slot].age = 0;	
 }
 
 static inline void midi_note_off(midi_status *midi, uint8_t note)
@@ -145,7 +145,7 @@ void midiproc(midi_status *midi, uint8_t byte, uint8_t channel)
 				case 0x60:
 					midi->pitchbend = midi->dbuf[0] | (midi->dbuf[1] << 7);
 					break;
-					
+
 				default:
 					break;
 			}

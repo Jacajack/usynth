@@ -9,7 +9,7 @@ typedef struct midi_voice
 	uint8_t note;
 	uint8_t velocity;
 	uint8_t gate;
-	uint8_t age;
+	int8_t age;
 } midi_voice;
 
 typedef struct midi_status
