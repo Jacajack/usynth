@@ -3,7 +3,7 @@
 #include "ppg_data.h"
 
 
-const uint8_t ppg_wavetable[] PROGMEM = {
+const uint8_t ppg_wavetable_data[] PROGMEM = {
 	0x00, // 0x00000000
 	0x65,
 	0x00,
@@ -775,7 +775,7 @@ const uint8_t ppg_wavetable[] PROGMEM = {
 };
 
 
-const uint8_t ppg_waveforms[] PROGMEM = {
+const uint8_t ppg_waveforms_data[] PROGMEM = {
 	131,	// -------- wave 000 (00h), sample 00
 	162,	// sample 01
 	188,	// sample 02

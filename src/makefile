@@ -19,6 +19,7 @@ clean:
 
 usynth.elf: $(OBJECTS)
 	$(CC) $(CFLAGS) $^ -o $@
+	avr-size -C --mcu=$(MCU) $@
 
 prog: usynth.elf
 	avrdude -c usbasp -p m328p -U flash:w:usynth.elf
