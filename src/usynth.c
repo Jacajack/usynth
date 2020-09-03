@@ -91,7 +91,7 @@ static void midi_control_change(uint8_t index, uint8_t value)
 	if (wavetable_number != midi.control[MIDI_WAVETABLE])
 	{
 		wavetable_number = midi.control[MIDI_WAVETABLE];
-		wavetable_number = wavetable_number > 28 ? 28 : wavetable_number;
+		wavetable_number = wavetable_number >= PPG_WAVETABLE_COUNT ? PPG_WAVETABLE_COUNT - 1 : wavetable_number;
 
 		// Write back to the MIDI controls array, so the wavetable
 		// is not reloaded over and over if it's out of range
