@@ -1,3 +1,4 @@
+#include "usynth.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <inttypes.h>
@@ -7,6 +8,8 @@
 #include "midi.h"
 #include "ppg/ppg_osc.h"
 #include "eg.h"
+#include "mod_table.h"
+#include "mul.h"
 
 #ifndef F_CPU
 #error F_CPU is not defined!
@@ -21,29 +24,6 @@
 #define MIDI_BAUD 31250
 #endif
 
-
-#define LED_1_PIN 2
-#define LED_2_PIN 3
-#define LED_3_PIN 4
-
-#define LED_RED_PIN LED_1_PIN
-
-#define LDAC_PIN  1
-#define CS_PIN    2
-#define MOSI_PIN  3
-#define SCK_PIN   5
-
-static void spi_txb(uint8_t b)
-{
-	SPDR = b;
-	while (!(SPSR & (1 << SPIF)));
-}
-
-#define MCP4921_DAC_AB_BIT   (1 << 15)
-#define MCP4921_VREF_BUF_BIT (1 << 14)
-#define MCP4921_GAIN_BIT     (1 << 13)
-#define MCP4921_SHDN_BIT     (1 << 12)
-
 /**
 	Main interrupt - sends a new sample to the DAC
 */
@@ -52,11 +32,14 @@ volatile uint8_t dac_sent = 0;
 ISR(TIMER1_COMPB_vect)
 {
 	// CS is automatically set low
-	
 	const uint16_t mcp4921_conf = MCP4921_SHDN_BIT | MCP4921_GAIN_BIT | MCP4921_VREF_BUF_BIT;
 	uint16_t data = mcp4921_conf | (dac_data >> 4);
-	spi_txb(data >> 8);
-	spi_txb(data);
+	
+	// Send the data via SPI
+	SPDR = data >> 8;
+	while (!(SPSR & (1 << SPIF)));
+	SPDR = data;
+	while (!(SPSR & (1 << SPIF)));
 	
 	// Force compare event to set CS high
 	TCCR1A = (1 << COM1B0) | (1 << COM1B1);
@@ -70,11 +53,39 @@ ISR(TIMER1_COMPB_vect)
 // Globals
 static midi_status midi;
 static ppg_osc_bank osc_bank;
-static usynth_eg_bank eg_bank = {
-	.attack = 32000,
-	.release = 40,
-	.sustain = 65535,
-};
+static usynth_eg_bank amp_eg_bank;
+static usynth_eg_bank mod_eg_bank;
+
+static int8_t base_wave = 0;
+static int8_t eg_mod_int = 127;
+
+static void set_midi_program(uint8_t program)
+{
+	ppg_osc_bank_load_wavetable(&osc_bank, program);
+}
+
+
+#define SAFE_ADD_INT8(res, x) if (x > 0) {if (127 - x < res) res = 127; else res += x;} else {if (-128 - x > res) res = -128; else res += x;}
+#define MIDI_CONTROL_TO_S8(x) (((int8_t)(x) - 64) << 1)
+#define MIDI_CONTROL_TO_U8(x) ((x) << 1)
+
+
+static void midi_control_change(uint8_t index, uint8_t value)
+{
+	base_wave = MIDI_CONTROL_TO_S8(midi.control[MIDI_BASE_WAVE]);
+	eg_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_EG_INT]);
+
+	amp_eg_bank.attack  = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_ATTACK]);
+	amp_eg_bank.sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_SUSTAIN]);
+	amp_eg_bank.release = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_RELEASE]);
+	amp_eg_bank.sustain_enabled = midi.control[MIDI_AMP_ASR];
+
+	mod_eg_bank.attack  = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_ATTACK]);
+	mod_eg_bank.sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_SUSTAIN]);
+	mod_eg_bank.release = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_RELEASE]);
+	mod_eg_bank.sustain_enabled = midi.control[MIDI_MOD_ASR];
+}
+
 
 
 int main(void)
@@ -115,10 +126,29 @@ int main(void)
 	// -------------- HW init done
 
 	midi_init(&midi);
-	ppg_osc_bank_load_wavetable(&osc_bank, 4);
+	midi.program_change_handler = set_midi_program;
+	midi.control_change_handler = midi_control_change;
 
-	sei();
+	// MIDI defaults
+	midi.control[MIDI_BASE_WAVE] = 64;
+	midi.control[MIDI_MOD_EG_INT] = 64;
 	
+	midi.control[MIDI_AMP_ATTACK] = 127;
+	midi.control[MIDI_AMP_SUSTAIN] = 127;
+	midi.control[MIDI_AMP_RELEASE] = 24;
+	midi.control[MIDI_AMP_ASR] = 1;
+
+	midi.control[MIDI_MOD_ATTACK] = 127;
+	midi.control[MIDI_MOD_SUSTAIN] = 127;
+	midi.control[MIDI_MOD_RELEASE] = 24;
+	midi.control[MIDI_MOD_ASR] = 1;
+
+
+	set_midi_program(0);
+	midi_control_change(0, 0);
+	
+	sei();
+
 	// The main loop
 	uint8_t slow_cnt = 0;
 	while (1)
@@ -126,40 +156,49 @@ int main(void)
 		// Check incoming USART data and process it
 		if (UCSR0A & (1 << RXC0))
 			midi_process_byte(&midi, UDR0, 0);
-		
+
 		// Slow calculations done each 16 samples
-		if (slow_cnt++ == 16)
+		if (--slow_cnt == 0)
 		{
-			slow_cnt = 0;
-			eg_bank.eg[0].gate = midi.voices[0].gate;
-			eg_bank.eg[1].gate = midi.voices[1].gate;
-			usynth_eg_bank_update(&eg_bank);
+			slow_cnt = 15;
+
+			for (uint8_t i = 0; i < USYNTH_VOICES; i++)
+			{
+				int8_t mod = base_wave;
+				int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[i].output >> 9)) >> 7;
+				SAFE_ADD_INT8(mod, eg_mod);
+
+				if (midi.voices[i].gate & MIDI_GATE_TRIG_BIT)
+				{
+					midi.voices[i].gate = MIDI_GATE_ON_BIT;
+					osc_bank.osc[i].phase = 0;
+				}
+
+				osc_bank.osc[i].phase_step = pgm_read_word(midi_notes + midi.voices[i].note);
+				osc_bank.osc[i].wave = pgm_read_byte(mod_table + (uint8_t) mod);
+				amp_eg_bank.eg[i].gate = midi.voices[i].gate;
+				mod_eg_bank.eg[i].gate = midi.voices[i].gate;
+			}
+
+			usynth_eg_bank_update(&amp_eg_bank);
+			usynth_eg_bank_update(&mod_eg_bank);
 		}
 
-		static uint16_t t = 0;
-		static int8_t dt = 0;
-		if (t == 0) dt = 1;
-		else if (t == 65535) dt = -1;
-		t += dt;
-		
-		uint8_t n = 64 - (eg_bank.eg[0].output >> 10);
-		n = n > 60 ? 60 : n;
-		
-		uint8_t n2 = 64 - (eg_bank.eg[1].output >> 10);
-		n2 = n2 > 60 ? 60 : n2;
-		
-		osc_bank.osc[0].wave = n;
-		osc_bank.osc[1].wave = n2;
-
-		osc_bank.osc[0].phase_step = pgm_read_word(midi_notes + midi.voices[0].note);
-		osc_bank.osc[1].phase_step = pgm_read_word(midi_notes + midi.voices[1].note);
 		ppg_osc_bank_update(&osc_bank);
 
-		dac_data = ((osc_bank.osc[0].output * (uint32_t)eg_bank.eg[0].output) >> 17)
-			+ ((osc_bank.osc[1].output * (uint32_t)eg_bank.eg[1].output) >> 17);
+		uint16_t x0, x1;
+		MUL_U16_U16_16H(x0, osc_bank.osc[0].output, amp_eg_bank.eg[0].output);
+		MUL_U16_U16_16H(x1, osc_bank.osc[1].output, amp_eg_bank.eg[1].output);
+		dac_data = (x0 >> 1) + (x1 >> 1);
 		
 		// Wait for the 'sent' flag and clear it
-		while (!dac_sent);
+		while (!dac_sent)
+		{
+			PORTD |= (1 << LED_RED_PIN);
+			if (slow_cnt == 14) PORTD |= (1 << LED_2_PIN);
+		}
+		PORTD &= ~(1 << LED_RED_PIN);
+		PORTD &= ~(1 << LED_2_PIN);
 		dac_sent = 0;
 	}
 }

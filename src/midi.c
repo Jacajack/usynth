@@ -57,7 +57,7 @@ static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocit
 
 	// Always prefer empty slot over reuse
 	uint8_t slot = oldest_empty_slot == MIDI_VOICES ? oldest_active_slot : oldest_empty_slot;
-	midi->voices[slot].gate = 1;
+	midi->voices[slot].gate = MIDI_GATE_ON_BIT | MIDI_GATE_TRIG_BIT;
 	midi->voices[slot].note = note;
 	midi->voices[slot].velocity = velocity;
 	midi->voices[slot].age = 0;	
@@ -150,11 +150,15 @@ void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t channel)
 				// Controller change
 				case 0x30:
 					midi->control[midi->dbuf[0]] = midi->dbuf[1];
+					if (midi->control_change_handler)
+						midi->control_change_handler(midi->dbuf[0], midi->dbuf[1]);
 					break;
 
 				// Program change
 				case 0x40:
 					midi->program = midi->dbuf[0];
+					if (midi->program_change_handler)
+						midi->program_change_handler(midi->program);
 					break;
 
 				// Pitch

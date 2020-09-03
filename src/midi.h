@@ -8,6 +8,25 @@
 #error MIDI_VOICES is not defined
 #endif
 
+// Base wave
+#define MIDI_BASE_WAVE    56
+
+// Amplifier envelope controls
+#define MIDI_AMP_ATTACK   60
+#define MIDI_AMP_SUSTAIN  61
+#define MIDI_AMP_RELEASE  62
+#define MIDI_AMP_ASR      63
+
+// Modulation envelope controls
+#define MIDI_MOD_ATTACK   64
+#define MIDI_MOD_SUSTAIN  65
+#define MIDI_MOD_RELEASE  66
+#define MIDI_MOD_ASR      67
+#define MIDI_MOD_EG_INT   68
+
+#define MIDI_GATE_ON_BIT   1
+#define MIDI_GATE_TRIG_BIT 2
+
 typedef struct midi_voice
 {
 	uint8_t note;
@@ -32,6 +51,10 @@ typedef struct midi_status
 	uint8_t program;
 	uint16_t pitchbend;
 	uint8_t reset;
+
+	// Callbacks
+	void (*program_change_handler)(uint8_t program);
+	void (*control_change_handler)(uint8_t index, uint8_t value);
 
 	// MIDI controllers
 	uint8_t control[128];

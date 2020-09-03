@@ -4,15 +4,16 @@ MIDI_BAUD = 31250
 MCU = atmega328p
 
 CC = avr-gcc
+OBJDUMP = avr-objdump
 CFLAGS = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -mmcu=$(MCU) -O3 -funroll-loops -flto
 
-SOURCES = usynth.c midi.c notes.c ppg/ppg_data.c ppg/ppg.c
+SOURCES = usynth.c midi.c notes.c mod_table.c ppg/ppg_data.c ppg/ppg.c
 OBJECTS = $(patsubst %.c,%.o,$(SOURCES))
 DEPENDS = $(patsubst %.c,%.d,$(SOURCES))
 
 .PHONY: all clean
 
-all: usynth.elf
+all: usynth.elf usynth.lss
 
 clean:
 	-rm usynth.elf $(OBJECTS) $(DEPENDS)
@@ -28,3 +29,6 @@ prog: usynth.elf
 
 %.o: %.c makefile
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+%.lss: %.elf
+	$(OBJDUMP) -h -S $< > $@
