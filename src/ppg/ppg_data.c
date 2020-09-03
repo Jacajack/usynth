@@ -2,6 +2,37 @@
 #include <avr/pgmspace.h>
 #include "ppg_data.h"
 
+const uint16_t ppg_wavetable_offsets[PPG_WAVETABLE_COUNT] PROGMEM = {
+	0x0000,	// 0
+	0x0011,	// 1
+	0x0022,	// 2
+	0x002f,	// 3
+	0x003e,	// 4
+	0x0047,	// 5
+	0x0054,	// 6
+	0x0067,	// 7
+	0x0070,	// 8
+	0x0079,	// 9
+	0x0088,	// 10
+	0x0093,	// 11
+	0x009e,	// 12
+	0x00af,	// 13
+	0x00c0,	// 14
+	0x00cd,	// 15
+	0x00d6,	// 16
+	0x0115,	// 17
+	0x0122,	// 18
+	0x0135,	// 19
+	0x0140,	// 20
+	0x0175,	// 21
+	0x018e,	// 22
+	0x019f,	// 23
+	0x01ae,	// 24
+	0x01bd,	// 25
+	0x01ce,	// 26
+	0x020d,	// 27
+	0x024c,	// 28
+};
 
 const uint8_t ppg_wavetable_data[] PROGMEM = {
 	0x00, // 0x00000000

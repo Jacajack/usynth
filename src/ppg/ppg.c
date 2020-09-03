@@ -1,6 +1,7 @@
 #include "ppg.h"
 #include <inttypes.h>
 #include <string.h>
+#include <avr/pgmspace.h>
 
 /**
 	Load a wavetable stored in PPG Wave 2.2 format into an array of wavetable_entry structs of size wavetable_size
@@ -68,12 +69,11 @@ const uint8_t *ppg_load_wavetable(ppg_wavetable_entry *entries, uint8_t wavetabl
 }
 
 //! Loads n-th requested wavetable from binary format
-//! Not very efficient, but it doesn't need to be.
 //! \see load_wavetable()
 const uint8_t *ppg_load_wavetable_n(ppg_wavetable_entry *entries, uint8_t wavetable_size, const uint8_t *data, uint8_t index)
 {
-	for ( uint8_t i = 0; i < index + 1; i++ )
-		data = ppg_load_wavetable(entries, wavetable_size, data);
+	uint16_t offset = pgm_read_word(&ppg_wavetable_offsets[index]);
+	ppg_load_wavetable(entries, wavetable_size, data + offset);
 	return data;
 }
 
