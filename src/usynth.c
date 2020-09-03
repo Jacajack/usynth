@@ -2,6 +2,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <inttypes.h>
+#include <stddef.h>
 
 #include "config.h"
 #include "notes.h"
@@ -59,20 +60,12 @@ static midi_status midi;
 static ppg_osc_bank osc_bank;
 static usynth_eg_bank amp_eg_bank;
 static usynth_eg_bank mod_eg_bank;
-static usynth_lfo lfo = {
-	.step = 24,
-	.value = 0,
-	.waveform = USYNTH_LFO_TRIANGLE
-};
-static int8_t base_wave = 0;
-static int8_t eg_mod_int = 127;
-static int8_t lfo_mod_int = 0;
-static int8_t filter_k = 64;
-
-static void set_midi_program(uint8_t program)
-{
-	ppg_osc_bank_load_wavetable(&osc_bank, program);
-}
+static usynth_lfo lfo;
+static int8_t base_wave;
+static int8_t eg_mod_int;
+static int8_t lfo_mod_int;
+static int8_t filter_k;
+static uint8_t wavetable_number = 255;
 
 static void midi_control_change(uint8_t index, uint8_t value)
 {
@@ -94,6 +87,13 @@ static void midi_control_change(uint8_t index, uint8_t value)
 	lfo.waveform = midi.control[MIDI_LFO_WAVE];
 
 	filter_k = MIDI_CONTROL_TO_S8(midi.control[MIDI_CUTOFF]);
+
+	if (wavetable_number != midi.control[MIDI_WAVETABLE])
+	{
+		wavetable_number = midi.control[MIDI_WAVETABLE];
+		wavetable_number = wavetable_number > 27 ? 27 : wavetable_number;
+		ppg_osc_bank_load_wavetable(&osc_bank, wavetable_number);
+	}
 }
 
 int main(void)
@@ -134,30 +134,9 @@ int main(void)
 	// -------------- HW init done
 
 	midi_init(&midi);
-	midi.program_change_handler = set_midi_program;
+	midi.program_change_handler = NULL;
 	midi.control_change_handler = midi_control_change;
-
-	// MIDI defaults
-	midi.control[MIDI_BASE_WAVE] = 64;
-	midi.control[MIDI_MOD_EG_INT] = 64;
-	
-	midi.control[MIDI_AMP_ATTACK] = 0;
-	midi.control[MIDI_AMP_SUSTAIN] = 127;
-	midi.control[MIDI_AMP_RELEASE] = 79;
-	midi.control[MIDI_AMP_ASR] = 1;
-
-	midi.control[MIDI_MOD_ATTACK] = 0;
-	midi.control[MIDI_MOD_SUSTAIN] = 127;
-	midi.control[MIDI_MOD_RELEASE] = 79;
-	midi.control[MIDI_MOD_ASR] = 1;
-
-	midi.control[MIDI_CUTOFF] = 64;
-
-	midi.control[MIDI_LFO_RATE] = 64;
-	midi.control[MIDI_MOD_LFO_INT] = 127;
-
-	set_midi_program(0);
-	midi_control_change(0, 0);
+	midi_program_load(&midi, 0);
 	
 	sei();
 

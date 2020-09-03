@@ -8,6 +8,9 @@
 #error MIDI_VOICES is not defined
 #endif
 
+// Wavetable number
+#define MIDI_WAVETABLE    55
+
 // Base wave
 #define MIDI_BASE_WAVE    56
 
@@ -69,7 +72,14 @@ typedef struct midi_status
 	uint8_t control[128];
 } midi_status;
 
+typedef struct midi_program_data
+{
+	uint8_t param;
+	uint8_t value;
+} midi_program_data;
+
 extern void midi_init(midi_status *midi);
 extern void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t channel);
+extern void midi_program_load(midi_status *midi, uint8_t id);
 
 #endif
