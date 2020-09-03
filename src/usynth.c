@@ -9,7 +9,9 @@
 #include "ppg/ppg_osc.h"
 #include "eg.h"
 #include "mod_table.h"
+#include "env_table.h"
 #include "mul.h"
+#include "utils.h"
 
 #ifndef F_CPU
 #error F_CPU is not defined!
@@ -50,12 +52,11 @@ ISR(TIMER1_COMPB_vect)
 	dac_sent = 1;
 }
 
-// Globals
+// Synth globals
 static midi_status midi;
 static ppg_osc_bank osc_bank;
 static usynth_eg_bank amp_eg_bank;
 static usynth_eg_bank mod_eg_bank;
-
 static int8_t base_wave = 0;
 static int8_t eg_mod_int = 127;
 
@@ -64,29 +65,21 @@ static void set_midi_program(uint8_t program)
 	ppg_osc_bank_load_wavetable(&osc_bank, program);
 }
 
-
-#define SAFE_ADD_INT8(res, x) if (x > 0) {if (127 - x < res) res = 127; else res += x;} else {if (-128 - x > res) res = -128; else res += x;}
-#define MIDI_CONTROL_TO_S8(x) (((int8_t)(x) - 64) << 1)
-#define MIDI_CONTROL_TO_U8(x) ((x) << 1)
-
-
 static void midi_control_change(uint8_t index, uint8_t value)
 {
 	base_wave = MIDI_CONTROL_TO_S8(midi.control[MIDI_BASE_WAVE]);
 	eg_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_EG_INT]);
 
-	amp_eg_bank.attack  = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_ATTACK]);
+	amp_eg_bank.attack  = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_ATTACK]));
 	amp_eg_bank.sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_SUSTAIN]);
-	amp_eg_bank.release = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_RELEASE]);
+	amp_eg_bank.release = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_RELEASE]));
 	amp_eg_bank.sustain_enabled = midi.control[MIDI_AMP_ASR];
 
-	mod_eg_bank.attack  = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_ATTACK]);
+	mod_eg_bank.attack  = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_ATTACK]));
 	mod_eg_bank.sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_SUSTAIN]);
-	mod_eg_bank.release = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_RELEASE]);
+	mod_eg_bank.release = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_RELEASE]));
 	mod_eg_bank.sustain_enabled = midi.control[MIDI_MOD_ASR];
 }
-
-
 
 int main(void)
 {
@@ -133,16 +126,15 @@ int main(void)
 	midi.control[MIDI_BASE_WAVE] = 64;
 	midi.control[MIDI_MOD_EG_INT] = 64;
 	
-	midi.control[MIDI_AMP_ATTACK] = 127;
+	midi.control[MIDI_AMP_ATTACK] = 0;
 	midi.control[MIDI_AMP_SUSTAIN] = 127;
-	midi.control[MIDI_AMP_RELEASE] = 24;
+	midi.control[MIDI_AMP_RELEASE] = 79;
 	midi.control[MIDI_AMP_ASR] = 1;
 
-	midi.control[MIDI_MOD_ATTACK] = 127;
+	midi.control[MIDI_MOD_ATTACK] = 0;
 	midi.control[MIDI_MOD_SUSTAIN] = 127;
-	midi.control[MIDI_MOD_RELEASE] = 24;
+	midi.control[MIDI_MOD_RELEASE] = 79;
 	midi.control[MIDI_MOD_ASR] = 1;
-
 
 	set_midi_program(0);
 	midi_control_change(0, 0);
