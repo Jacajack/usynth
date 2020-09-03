@@ -36,6 +36,9 @@
 #define MIDI_LFO_WAVE     72
 #define MIDI_MOD_LFO_INT  73
 
+// Debug
+#define MIDI_WORKLOAD_CHANNEL 100
+
 #define MIDI_GATE_ON_BIT   1
 #define MIDI_GATE_TRIG_BIT 2
 

@@ -32,57 +32,59 @@ typedef struct usynth_eg_bank
 	usynth_eg eg[USYNTH_EG_BANK_SIZE];
 } usynth_eg_bank;
 
-
-static inline uint16_t usynth_eg_bank_update(usynth_eg_bank *bank)
+static inline void usynth_eg_bank_update_eg(usynth_eg_bank *bank, uint8_t id)
 {
-	for (uint8_t i = 0; i < USYNTH_EG_BANK_SIZE; i++)
-	{
-		usynth_eg *eg = &bank->eg[i];
+	usynth_eg *eg = &bank->eg[id];
 
-		switch (eg->status)
-		{
-			case USYNTH_EG_IDLE:
-				if (eg->gate) eg->status = USYNTH_EG_ATTACK;
-				break;
-					
-			case USYNTH_EG_ATTACK:
-				if (!eg->gate) eg->status = USYNTH_EG_RELEASE;
+	switch (eg->status)
+	{
+		case USYNTH_EG_IDLE:
+			if (eg->gate) eg->status = USYNTH_EG_ATTACK;
+			break;
+				
+		case USYNTH_EG_ATTACK:
+			if (!eg->gate) eg->status = USYNTH_EG_RELEASE;
+			else
+			{
+				uint16_t tmp = eg->value + bank->attack;
+				if (tmp < eg->value)
+				{
+					eg->value = UINT16_MAX;
+					eg->status = USYNTH_EG_SUSTAIN;
+				}
 				else
 				{
-					uint16_t tmp = eg->value + bank->attack;
-					if (tmp < eg->value)
-					{
-						eg->value = UINT16_MAX;
-						eg->status = USYNTH_EG_SUSTAIN;
-					}
-					else
-					{
-						eg->value = tmp;
-					}
+					eg->value = tmp;
 				}
-				break;
-				
-			case USYNTH_EG_SUSTAIN:
-				if (!eg->gate || !bank->sustain_enabled) eg->status = USYNTH_EG_RELEASE;
-				break;
+			}
+			break;
 			
-			case USYNTH_EG_RELEASE:
+		case USYNTH_EG_SUSTAIN:
+			if (!eg->gate || !bank->sustain_enabled) eg->status = USYNTH_EG_RELEASE;
+			break;
+		
+		case USYNTH_EG_RELEASE:
+			{
+				uint16_t tmp = eg->value - bank->release;
+				if (tmp > eg->value)
 				{
-					uint16_t tmp = eg->value - bank->release;
-					if (tmp > eg->value)
-					{
-						eg->value = 0;
-					}
-					else
-					{
-						eg->value = tmp;
-					}
+					eg->value = 0;
 				}
-				break;
-		}
-	
-		MUL_U16_U8_16H(eg->output, eg->value, bank->sustain);
+				else
+				{
+					eg->value = tmp;
+				}
+			}
+			break;
 	}
+	
+	MUL_U16_U8_16H(eg->output, eg->value, bank->sustain);
 }	
+
+static inline void usynth_eg_bank_update(usynth_eg_bank *bank)
+{
+	for (uint8_t i = 0; i < USYNTH_EG_BANK_SIZE; i++)
+		usynth_eg_bank_update_eg(bank, i);
+}
 
 #endif

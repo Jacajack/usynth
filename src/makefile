@@ -1,11 +1,11 @@
 F_CPU = 20000000UL
-F_SAMPLE = 20000
+F_SAMPLE = 28000
 MIDI_BAUD = 31250
 MCU = atmega328p
 
 CC = avr-gcc
 OBJDUMP = avr-objdump
-CFLAGS = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -mmcu=$(MCU) -O3 -funroll-loops -flto
+CFLAGS = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -mmcu=$(MCU) -O3 -funroll-loops -flto -Wall
 
 SOURCES = usynth.c midi.c notes.c mod_table.c env_table.c ppg/ppg_data.c ppg/ppg.c
 OBJECTS = $(patsubst %.c,%.o,$(SOURCES))
@@ -16,7 +16,7 @@ DEPENDS = $(patsubst %.c,%.d,$(SOURCES))
 all: usynth.elf usynth.lss
 
 clean:
-	-rm usynth.elf $(OBJECTS) $(DEPENDS)
+	-rm -f usynth.elf $(OBJECTS) $(DEPENDS)
 
 usynth.elf: $(OBJECTS)
 	$(CC) $(CFLAGS) $^ -o $@
