@@ -28,6 +28,11 @@
 #define MIDI_CUTOFF       69
 #define MIDI_RESONANCE    70
 
+// LFO
+#define MIDI_LFO_RATE     71
+#define MIDI_LFO_WAVE     72
+#define MIDI_MOD_LFO_INT  73
+
 #define MIDI_GATE_ON_BIT   1
 #define MIDI_GATE_TRIG_BIT 2
 
