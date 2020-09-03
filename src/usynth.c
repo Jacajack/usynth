@@ -155,35 +155,61 @@ int main(void)
 		if (UCSR0A & (1 << RXC0))
 			midi_process_byte(&midi, UDR0, 0);
 
-		// Slow calculations done each 16 samples
-		if (--slow_cnt == 0)
+		// Distribute work evenly across each 16 samples
+		switch (--slow_cnt)
 		{
-			slow_cnt = 15;
-
-			for (uint8_t i = 0; i < USYNTH_VOICES; i++)
-			{
-				int8_t mod = base_wave;
-				int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[i].output >> 9)) >> 7;
-				SAFE_ADD_INT8(mod, eg_mod);
-
-				if (midi.voices[i].gate & MIDI_GATE_TRIG_BIT)
+			// Modulation and control parameter setup
+			case 2:
+				for (uint8_t i = 0; i < USYNTH_VOICES; i++)
 				{
-					midi.voices[i].gate = MIDI_GATE_ON_BIT;
-					amp_eg_bank.eg[i].status = USYNTH_EG_IDLE;
-					amp_eg_bank.eg[i].value = 0;
-					mod_eg_bank.eg[i].status = USYNTH_EG_IDLE;
-					mod_eg_bank.eg[i].value = 0;
-					osc_bank.osc[i].phase = 0;
+					int8_t mod = base_wave;
+					int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[i].output >> 9)) >> 7;
+					SAFE_ADD_INT8(mod, eg_mod);
+
+					if (midi.voices[i].gate & MIDI_GATE_TRIG_BIT)
+					{
+						midi.voices[i].gate = MIDI_GATE_ON_BIT;
+						amp_eg_bank.eg[i].status = USYNTH_EG_IDLE;
+						amp_eg_bank.eg[i].value = 0;
+						mod_eg_bank.eg[i].status = USYNTH_EG_IDLE;
+						mod_eg_bank.eg[i].value = 0;
+						osc_bank.osc[i].phase = 0;
+					}
+
+					osc_bank.osc[i].phase_step = pgm_read_word(midi_notes + midi.voices[i].note);
+					osc_bank.osc[i].wave = pgm_read_byte(mod_table + (uint8_t) mod);
+					amp_eg_bank.eg[i].gate = midi.voices[i].gate;
+					mod_eg_bank.eg[i].gate = midi.voices[i].gate;
 				}
+				break;
 
-				osc_bank.osc[i].phase_step = pgm_read_word(midi_notes + midi.voices[i].note);
-				osc_bank.osc[i].wave = pgm_read_byte(mod_table + (uint8_t) mod);
-				amp_eg_bank.eg[i].gate = midi.voices[i].gate;
-				mod_eg_bank.eg[i].gate = midi.voices[i].gate;
-			}
+			// EG update 
+			case 1:
+				for (uint8_t i = 0; i < USYNTH_VOICES; i++)
+				{
+					usynth_eg_bank_update(&amp_eg_bank);
+					usynth_eg_bank_update(&mod_eg_bank);
+				}
+				break;
 
-			usynth_eg_bank_update(&amp_eg_bank);
-			usynth_eg_bank_update(&mod_eg_bank);
+			// LEDs and counter reset
+			case 0:
+				if (amp_eg_bank.eg[0].output >> 8)
+					PORTD |= (1 << LED_RED_PIN);
+				else
+					PORTD &= ~(1 << LED_RED_PIN);
+
+				if (amp_eg_bank.eg[1].output >> 8)
+					PORTD |= (1 << LED_YLW_PIN);
+				else
+					PORTD &= ~(1 << LED_YLW_PIN);
+
+				slow_cnt = 15;
+				break;
+
+			// Empty steps
+			default:
+				break;
 		}
 
 		ppg_osc_bank_update(&osc_bank);
@@ -202,11 +228,9 @@ int main(void)
 		// Wait for the 'sent' flag and clear it
 		while (!dac_sent)
 		{
-			PORTD |= (1 << LED_RED_PIN);
-			if (slow_cnt == 14) PORTD |= (1 << LED_2_PIN);
+			if (slow_cnt == 14) PORTD |= (1 << LED_GRN_PIN);
 		}
-		PORTD &= ~(1 << LED_RED_PIN);
-		PORTD &= ~(1 << LED_2_PIN);
+		PORTD &= ~(1 << LED_GRN_PIN);
 		dac_sent = 0;
 	}
 }
