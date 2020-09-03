@@ -91,7 +91,12 @@ static void midi_control_change(uint8_t index, uint8_t value)
 	if (wavetable_number != midi.control[MIDI_WAVETABLE])
 	{
 		wavetable_number = midi.control[MIDI_WAVETABLE];
-		wavetable_number = wavetable_number > 27 ? 27 : wavetable_number;
+		wavetable_number = wavetable_number > 28 ? 28 : wavetable_number;
+
+		// Write back to the MIDI controls array, so the wavetable
+		// is not reloaded over and over if it's out of range
+		midi.control[MIDI_WAVETABLE] = wavetable_number;
+
 		ppg_osc_bank_load_wavetable(&osc_bank, wavetable_number);
 	}
 }
@@ -211,12 +216,13 @@ int main(void)
 
 		ppg_osc_bank_update(&osc_bank);
 
-		uint16_t x0, x1, x2;
+		uint16_t x0, x1;
 		MUL_U16_U16_16H(x0, osc_bank.osc[0].output, amp_eg_bank.eg[0].output);
+		MUL_U16_U8_16H(x0, x0, midi.voices[0].velocity << 1);
 		MUL_U16_U16_16H(x1, osc_bank.osc[1].output, amp_eg_bank.eg[1].output);
-		MUL_U16_U16_16H(x2, osc_bank.osc[2].output, amp_eg_bank.eg[2].output);
-		int16_t x = (x0 >> 2) + (x1 >> 2) + (x2 >> 2) - 32768;
+		MUL_U16_U8_16H(x1, x1, midi.voices[1].velocity << 1);
 
+		int16_t x = (x0 >> 1) + (x1 >> 1) - 32768;
 		static filter1pole fi = 0;
 		x = filter1pole_feed(&fi, midi.control[MIDI_CUTOFF], x);
 
