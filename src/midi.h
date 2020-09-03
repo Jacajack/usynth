@@ -24,6 +24,10 @@
 #define MIDI_MOD_ASR      67
 #define MIDI_MOD_EG_INT   68
 
+// Filter
+#define MIDI_CUTOFF       69
+#define MIDI_RESONANCE    70
+
 #define MIDI_GATE_ON_BIT   1
 #define MIDI_GATE_TRIG_BIT 2
 
