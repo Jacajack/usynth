@@ -2,6 +2,7 @@
 #define EG_H
 
 #include "config.h"
+#include "mul.h"
 
 #ifndef USYNTH_EG_BANK_SIZE
 #error USYNTH_EG_BANK_SIZE not defined!
@@ -24,9 +25,9 @@ typedef struct usynth_eg_bank
 {
 	// Common parameters
 	uint16_t attack;
-	uint16_t sustain;
 	uint16_t release;
-	
+	uint8_t sustain;
+	uint8_t sustain_enabled;
 	// EG channels
 	usynth_eg eg[USYNTH_EG_BANK_SIZE];
 } usynth_eg_bank;
@@ -48,44 +49,46 @@ static inline uint16_t usynth_eg_bank_update(usynth_eg_bank *bank)
 				if (!eg->gate) eg->status = USYNTH_EG_RELEASE;
 				else
 				{
-					if (UINT16_MAX - bank->attack < eg->value)
+					uint16_t tmp = eg->value + bank->attack;
+					if (tmp < eg->value)
 					{
 						eg->value = UINT16_MAX;
 						eg->status = USYNTH_EG_SUSTAIN;
 					}
 					else
 					{
-						eg->value += bank->attack;
+						eg->value = tmp;
 					}
 				}
 				break;
 				
 			case USYNTH_EG_SUSTAIN:
-				if (!eg->gate || !bank->sustain) eg->status = USYNTH_EG_RELEASE;
+				if (!eg->gate || !bank->sustain_enabled) eg->status = USYNTH_EG_RELEASE;
 				break;
 			
 			case USYNTH_EG_RELEASE:
-				if (eg->gate)
+				if (eg->gate && bank->sustain_enabled)
 				{
 					eg->value = 0;
 					eg->status = USYNTH_EG_ATTACK;
 				}
 				else
 				{
-					if (eg->value < bank->release)
+					uint16_t tmp = eg->value - bank->release;
+					if (tmp > eg->value)
 					{
 						eg->value = 0;
 						eg->status = USYNTH_EG_IDLE;
 					}
 					else
 					{
-						eg->value -= bank->release;
+						eg->value = tmp;
 					}
 				}
 				break;
 		}
 	
-		eg->output = (eg->value * (uint32_t) bank->sustain) >> 16;
+		MUL_U16_U8_16H(eg->output, eg->value, bank->sustain);
 	}
 }	
 
