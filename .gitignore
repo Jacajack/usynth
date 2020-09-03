@@ -1,3 +1,6 @@
 src/**/*.elf
 src/**/*.o
 src/**/*.d
+src/**/*.s
+src/**/*.lss
+.vscode
