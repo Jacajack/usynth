@@ -29,6 +29,8 @@
 #define MIDI_BAUD 31250
 #endif
 
+#define LOAD_BALANCER_MAX 15
+
 /**
 	Main interrupt - sends a new sample to the DAC
 */
@@ -101,6 +103,34 @@ static void midi_control_change(uint8_t index, uint8_t value)
 	}
 }
 
+/**
+	Updates parameters of oscillators based on modulation.
+	Also responsible for retrigerring EGs
+*/
+static inline void update_params(uint8_t id)
+{
+	int8_t mod = base_wave;
+	int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[id].output >> 9)) >> 7;
+	int8_t lfo_mod = (lfo_mod_int * (lfo.output >> 8)) >> 8;
+	mod = safe_add_8(mod, eg_mod);
+	mod = safe_add_8(mod, lfo_mod);
+
+	if (midi.voices[id].gate & MIDI_GATE_TRIG_BIT)
+	{
+		midi.voices[id].gate = MIDI_GATE_ON_BIT;
+		amp_eg_bank.eg[id].status = USYNTH_EG_IDLE;
+		amp_eg_bank.eg[id].value = 0;
+		mod_eg_bank.eg[id].status = USYNTH_EG_IDLE;
+		mod_eg_bank.eg[id].value = 0;
+		osc_bank.osc[id].phase = 0;
+	}
+
+	osc_bank.osc[id].phase_step = pgm_read_word(midi_notes + midi.voices[id].note);
+	osc_bank.osc[id].wave = pgm_read_byte(mod_table + (uint8_t) mod);
+	amp_eg_bank.eg[id].gate = midi.voices[id].gate;
+	mod_eg_bank.eg[id].gate = midi.voices[id].gate;
+}
+
 int main(void)
 {
 	// LEDs
@@ -146,56 +176,53 @@ int main(void)
 	sei();
 
 	// The main loop
-	uint8_t slow_cnt = 0;
+	uint8_t load_balancer_cnt = LOAD_BALANCER_MAX;
 	while (1)
 	{
 		// Check incoming USART data and process it
 		if (UCSR0A & (1 << RXC0))
 			midi_process_byte(&midi, UDR0, 0);
 
-		// Distribute work evenly across each 16 samples
-		switch (--slow_cnt)
+		// Distribute workload evenly across each 16 samples
+		switch (--load_balancer_cnt)
 		{
-			// Modulation and control parameter setup
-			case 2:
-				for (uint8_t i = 0; i < USYNTH_VOICES; i++)
-				{
-					int8_t mod = base_wave;
-					int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[i].output >> 9)) >> 7;
-					int8_t lfo_mod = (lfo_mod_int * (lfo.output >> 8)) >> 8;
-					mod = safe_add_8(mod, eg_mod);
-					mod = safe_add_8(mod, lfo_mod);
-
-					if (midi.voices[i].gate & MIDI_GATE_TRIG_BIT)
-					{
-						midi.voices[i].gate = MIDI_GATE_ON_BIT;
-						amp_eg_bank.eg[i].status = USYNTH_EG_IDLE;
-						amp_eg_bank.eg[i].value = 0;
-						mod_eg_bank.eg[i].status = USYNTH_EG_IDLE;
-						mod_eg_bank.eg[i].value = 0;
-						osc_bank.osc[i].phase = 0;
-					}
-
-					osc_bank.osc[i].phase_step = pgm_read_word(midi_notes + midi.voices[i].note);
-					osc_bank.osc[i].wave = pgm_read_byte(mod_table + (uint8_t) mod);
-					amp_eg_bank.eg[i].gate = midi.voices[i].gate;
-					mod_eg_bank.eg[i].gate = midi.voices[i].gate;
-				}
+			// Modulation / EG retriggering 0
+			case 7:
+				update_params(0);
+				break;
+			
+			// Modulation / EG retriggering 1
+			case 6:
+				update_params(1);
 				break;
 
-			// EG update 
-			case 1:
-				for (uint8_t i = 0; i < USYNTH_VOICES; i++)
-				{
-					usynth_eg_bank_update(&amp_eg_bank);
-					usynth_eg_bank_update(&mod_eg_bank);
-				}
+			// AMP EG 0
+			case 5:
+				usynth_eg_bank_update_eg(&amp_eg_bank, 0);
+				break;
+
+			// AMP EG 1
+			case 4:
+				usynth_eg_bank_update_eg(&amp_eg_bank, 1);
+				break;
+
+			// MOD EG 0 
+			case 3:
+				usynth_eg_bank_update_eg(&mod_eg_bank, 0);
+				break;
+
+			// MOD EG 1
+			case 2:
+				usynth_eg_bank_update_eg(&mod_eg_bank, 1);
 				break;
 
 			// LEDs, LFO and counter reset
-			case 0:
+			case 1:
 				usynth_lfo_update(&lfo);
+				break;
 
+			// LEDs and counter reset
+			case 0:
 				if (amp_eg_bank.eg[0].output >> 8)
 					PORTD |= (1 << LED_RED_PIN);
 				else
@@ -206,7 +233,7 @@ int main(void)
 				else
 					PORTD &= ~(1 << LED_YLW_PIN);
 
-				slow_cnt = 15;
+				load_balancer_cnt = LOAD_BALANCER_MAX;
 				break;
 
 			// Empty steps
@@ -231,7 +258,7 @@ int main(void)
 		// Wait for the 'sent' flag and clear it
 		while (!dac_sent)
 		{
-			if (slow_cnt == 14) PORTD |= (1 << LED_GRN_PIN);
+			if (load_balancer_cnt == midi.control[MIDI_WORKLOAD_CHANNEL]) PORTD |= (1 << LED_GRN_PIN);
 		}
 		PORTD &= ~(1 << LED_GRN_PIN);
 		dac_sent = 0;
