@@ -1,5 +1,5 @@
-#ifndef MOD_TABLE
-#define MOD_TABLE
+#ifndef MOD_TABLE_H
+#define MOD_TABLE_H
 
 #include <inttypes.h>
 #include <avr/pgmspace.h>
