@@ -67,18 +67,11 @@ static inline uint16_t usynth_eg_bank_update(usynth_eg_bank *bank)
 				break;
 			
 			case USYNTH_EG_RELEASE:
-				if (eg->gate && bank->sustain_enabled)
-				{
-					eg->value = 0;
-					eg->status = USYNTH_EG_ATTACK;
-				}
-				else
 				{
 					uint16_t tmp = eg->value - bank->release;
 					if (tmp > eg->value)
 					{
 						eg->value = 0;
-						eg->status = USYNTH_EG_IDLE;
 					}
 					else
 					{

@@ -12,6 +12,7 @@
 #include "env_table.h"
 #include "mul.h"
 #include "utils.h"
+#include "filter.h"
 
 #ifndef F_CPU
 #error F_CPU is not defined!
@@ -59,6 +60,7 @@ static usynth_eg_bank amp_eg_bank;
 static usynth_eg_bank mod_eg_bank;
 static int8_t base_wave = 0;
 static int8_t eg_mod_int = 127;
+static int8_t filter_k = 64;
 
 static void set_midi_program(uint8_t program)
 {
@@ -79,6 +81,8 @@ static void midi_control_change(uint8_t index, uint8_t value)
 	mod_eg_bank.sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_SUSTAIN]);
 	mod_eg_bank.release = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_RELEASE]));
 	mod_eg_bank.sustain_enabled = midi.control[MIDI_MOD_ASR];
+
+	filter_k = MIDI_CONTROL_TO_S8(midi.control[MIDI_CUTOFF]);
 }
 
 int main(void)
@@ -136,6 +140,8 @@ int main(void)
 	midi.control[MIDI_MOD_RELEASE] = 79;
 	midi.control[MIDI_MOD_ASR] = 1;
 
+	midi.control[MIDI_CUTOFF] = 64;
+
 	set_midi_program(0);
 	midi_control_change(0, 0);
 	
@@ -163,6 +169,10 @@ int main(void)
 				if (midi.voices[i].gate & MIDI_GATE_TRIG_BIT)
 				{
 					midi.voices[i].gate = MIDI_GATE_ON_BIT;
+					amp_eg_bank.eg[i].status = USYNTH_EG_IDLE;
+					amp_eg_bank.eg[i].value = 0;
+					mod_eg_bank.eg[i].status = USYNTH_EG_IDLE;
+					mod_eg_bank.eg[i].value = 0;
 					osc_bank.osc[i].phase = 0;
 				}
 
@@ -178,10 +188,16 @@ int main(void)
 
 		ppg_osc_bank_update(&osc_bank);
 
-		uint16_t x0, x1;
+		uint16_t x0, x1, x2;
 		MUL_U16_U16_16H(x0, osc_bank.osc[0].output, amp_eg_bank.eg[0].output);
 		MUL_U16_U16_16H(x1, osc_bank.osc[1].output, amp_eg_bank.eg[1].output);
-		dac_data = (x0 >> 1) + (x1 >> 1);
+		MUL_U16_U16_16H(x2, osc_bank.osc[2].output, amp_eg_bank.eg[2].output);
+		int16_t x = (x0 >> 2) + (x1 >> 2) + (x2 >> 2) - 32768;
+
+		static filter1pole fi = 0;
+		x = filter1pole_feed(&fi, midi.control[MIDI_CUTOFF], x);
+
+		dac_data = x + 32768;
 		
 		// Wait for the 'sent' flag and clear it
 		while (!dac_sent)
