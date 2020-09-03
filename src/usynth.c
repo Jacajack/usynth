@@ -68,8 +68,13 @@ static int8_t eg_mod_int;
 static int8_t lfo_mod_int;
 static int8_t filter_k;
 static uint8_t wavetable_number = 255;
+static uint8_t midi_buffer[8];
+static uint8_t midi_len = 0;
 
-static void midi_control_change(uint8_t index, uint8_t value)
+/**
+	Updates synth state based on MIDI control parameters
+*/
+static inline void update_controls(void)
 {
 	base_wave = MIDI_CONTROL_TO_S8(midi.control[MIDI_BASE_WAVE]);
 	eg_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_EG_INT]);
@@ -169,23 +174,33 @@ int main(void)
 	// -------------- HW init done
 
 	midi_init(&midi);
-	midi.program_change_handler = NULL;
-	midi.control_change_handler = midi_control_change;
 	midi_program_load(&midi, 0);
-	
+
 	sei();
 
 	// The main loop
 	uint8_t load_balancer_cnt = LOAD_BALANCER_MAX;
 	while (1)
 	{
-		// Check incoming USART data and process it
+		// Check incoming USART data and buffer it
 		if (UCSR0A & (1 << RXC0))
-			midi_process_byte(&midi, UDR0, 0);
+			midi_buffer[midi_len++] = UDR0;
 
 		// Distribute workload evenly across each 16 samples
 		switch (--load_balancer_cnt)
 		{
+			// Process all received MIDI commands
+			case 9:
+				for (uint8_t i = 0; i < midi_len; i++)
+					midi_process_byte(&midi, midi_buffer[i], 0);
+				midi_len = 0;
+				break;
+
+			// Update from MIDI
+			case 8:
+				update_controls();
+				break;
+
 			// Modulation / EG retriggering 0
 			case 7:
 				update_params(0);

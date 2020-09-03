@@ -67,10 +67,6 @@ typedef struct midi_status
 	uint16_t pitchbend;
 	uint8_t reset;
 
-	// Callbacks
-	void (*program_change_handler)(uint8_t program);
-	void (*control_change_handler)(uint8_t index, uint8_t value);
-
 	// MIDI controllers
 	uint8_t control[128];
 } midi_status;

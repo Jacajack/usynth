@@ -151,15 +151,11 @@ void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t channel)
 				// Controller change
 				case 0x30:
 					midi->control[midi->dbuf[0]] = midi->dbuf[1];
-					if (midi->control_change_handler)
-						midi->control_change_handler(midi->dbuf[0], midi->dbuf[1]);
 					break;
 
 				// Program change
 				case 0x40:
 					midi_program_load(midi, midi->dbuf[0]);
-					if (midi->program_change_handler)
-						midi->program_change_handler(midi->program);
 					break;
 
 				// Pitch
@@ -287,12 +283,5 @@ void midi_program_load(midi_status *midi, uint8_t id)
 
 	// On succesful load
 	if (found)
-	{
 		midi->program = id;
-
-		// Emit controller change message
-		// so the synth logic can be updated
-		if (midi->control_change_handler)
-			midi->control_change_handler(param, value);
-	}
 }
