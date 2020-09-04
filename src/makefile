@@ -16,7 +16,7 @@ DEPENDS = $(patsubst %.c,%.d,$(SOURCES))
 all: usynth.elf usynth.lss
 
 clean:
-	-rm -f usynth.elf $(OBJECTS) $(DEPENDS)
+	-rm -f usynth.elf usynth.lss $(OBJECTS) $(DEPENDS)
 
 usynth.elf: $(OBJECTS)
 	$(CC) $(CFLAGS) $^ -o $@
