@@ -1,4 +1,4 @@
-#include "notes.h"
+#include "notes_table.h"
 
 const uint16_t midi_notes[] PROGMEM =
 {

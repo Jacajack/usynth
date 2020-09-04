@@ -5,10 +5,10 @@
 #include <stddef.h>
 
 #include "config.h"
-#include "notes.h"
 #include "midi.h"
 #include "ppg/ppg_osc.h"
 #include "eg.h"
+#include "data/notes_table.h"
 #include "data/mod_table.h"
 #include "data/env_table.h"
 #include "mul.h"

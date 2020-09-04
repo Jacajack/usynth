@@ -1,3 +1,4 @@
-src/data/env_table.c linguist-generated
-src/data/mod_table.c linguist-generated
-src/ppg/ppg_data.c   linguist-generated
+src/data/env_table.c   linguist-generated
+src/data/mod_table.c   linguist-generated
+src/data/notes_table.c linguist-generated
+src/ppg/ppg_data.c     linguist-generated

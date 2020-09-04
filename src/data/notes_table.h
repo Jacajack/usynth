@@ -1,5 +1,5 @@
-#ifndef NOTES_H
-#define NOTES_H
+#ifndef NOTES_TABLE_H
+#define NOTES_TABLE_H
 
 #include <inttypes.h>
 #include <avr/pgmspace.h>
