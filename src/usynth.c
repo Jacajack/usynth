@@ -72,9 +72,9 @@ static uint8_t midi_buffer[8];
 static uint8_t midi_len = 0;
 
 /**
-	Updates synth state based on MIDI control parameters
+	Updates synth state based on MIDI control parameters (part 1)
 */
-static inline void update_controls(void)
+static inline void update_controls_1(void)
 {
 	base_wave = MIDI_CONTROL_TO_S8(midi.control[MIDI_BASE_WAVE]);
 	eg_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_EG_INT]);
@@ -89,7 +89,13 @@ static inline void update_controls(void)
 	mod_eg_bank.sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_SUSTAIN]);
 	mod_eg_bank.release = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_RELEASE]));
 	mod_eg_bank.sustain_enabled = midi.control[MIDI_MOD_ASR];
+}
 
+/**
+	Updates synth state based on MIDI control parameters (part 2)
+*/
+static inline void update_controls_2(void)
+{
 	lfo_bank.step = MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_RATE]) << 1;
 	lfo_bank.waveform = midi.control[MIDI_LFO_WAVE];
 	lfo_bank.fade_step = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_FADE]));
@@ -220,60 +226,69 @@ int main(void)
 		switch (--load_balancer_cnt)
 		{
 			// Process all received MIDI commands
-			case 11:
+			case 13:
 				for (uint8_t i = 0; i < midi_len; i++)
 					midi_process_byte(&midi, midi_buffer[i], 0);
 				midi_len = 0;
 				break;
 
-			// Update from MIDI
-			case 10:
-				update_controls(); // TODO split this
+			// Update from MIDI (1/2)
+			case 12:
+				update_controls_1();
+				break;
+
+			// Update from MIDI (2/2)
+			case 11:
+				update_controls_2();
 				break;
 
 			// Update control parameters 0
-			case 9:
+			case 10:
 				update_params(0);
 				break;
 			
 			// Update control parameters 1
-			case 8:
+			case 9:
 				update_params(1);
 				break;
 
 			// AMP EG 0
-			case 7:
+			case 8:
 				usynth_eg_bank_update_eg(&amp_eg_bank, 0);
 				break;
 
 			// AMP EG 1
-			case 6:
+			case 7:
 				usynth_eg_bank_update_eg(&amp_eg_bank, 1);
 				break;
 
 			// MOD EG 0 
-			case 5:
+			case 6:
 				usynth_eg_bank_update_eg(&mod_eg_bank, 0);
 				break;
 
 			// MOD EG 1
-			case 4:
+			case 5:
 				usynth_eg_bank_update_eg(&mod_eg_bank, 1);
 				break;
 
 			// LFO 0
-			case 3:
+			case 4:
 				usynth_lfo_bank_update_lfo(&lfo_bank, 0);
 				break;
 
 			// LFO 1
-			case 2:
+			case 3:
 				usynth_lfo_bank_update_lfo(&lfo_bank, 1);
 				break;
 
-			// Update modulation
-			case 1:
+			// Update modulation 0
+			case 2:
 				update_mod(0);
+				break;
+
+			// Update modulation 1
+			case 1:
 				update_mod(1);
 				break;
 
