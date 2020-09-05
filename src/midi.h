@@ -35,6 +35,9 @@
 #define MIDI_LFO_RATE     71
 #define MIDI_LFO_WAVE     72
 #define MIDI_MOD_LFO_INT  73
+#define MIDI_LFO_FADE     74
+#define MIDI_LFO_SYNC     75 // Syncs LFO on keypress
+#define MIDI_LFO_RESET    76 // Syncs all LFOs together
 
 // Debug
 #define MIDI_WORKLOAD_CHANNEL 100
