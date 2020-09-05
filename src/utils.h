@@ -37,4 +37,21 @@ static inline int32_t safe_add_32(int32_t a, int32_t b)
 	return a + b;
 }
 
+//! Read uint16_t from delta-compressed uint8_t array in PROGMEM
+static inline uint16_t pgm_read_delta_word(const uint8_t *ptr, uint16_t n)
+{
+	uint16_t offset = (n >> 1) * 3;
+	uint16_t base_word = pgm_read_word(notes_table + offset);
+
+	if (n & 1)
+	{
+		uint8_t delta_byte = pgm_read_byte(notes_table + offset + 2);
+		return base_word + delta_byte;
+	}
+	else
+	{
+		return base_word;
+	}
+}
+
 #endif

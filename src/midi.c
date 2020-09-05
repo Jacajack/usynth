@@ -204,7 +204,7 @@ static const midi_program_data midi_program_table[] PROGMEM =
 	{MIDI_MOD_ASR,      1},
 	{MIDI_MOD_EG_INT,   64},
 	
-	{MIDI_CUTOFF,       64},
+	{MIDI_CUTOFF,       127},
 	{MIDI_RESONANCE,    0},
 
 	{MIDI_LFO_RATE,     64},

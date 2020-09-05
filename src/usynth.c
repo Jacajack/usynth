@@ -62,11 +62,12 @@ static midi_status midi;
 static ppg_osc_bank osc_bank;
 static usynth_eg_bank amp_eg_bank;
 static usynth_eg_bank mod_eg_bank;
-static usynth_lfo_bank lfo_bank = {.fade_step = 65535};
+static usynth_lfo_bank lfo_bank;
+static filter1pole filter;
 static int8_t base_wave;
 static int8_t eg_mod_int;
 static int8_t lfo_mod_int;
-static int8_t filter_k;
+static int8_t filter_cutoff;
 static uint8_t wavetable_number = 255;
 static uint8_t midi_buffer[8];
 static uint8_t midi_len = 0;
@@ -99,7 +100,9 @@ static inline void update_controls_2(void)
 	lfo_bank.step = MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_RATE]) << 1;
 	lfo_bank.waveform = midi.control[MIDI_LFO_WAVE];
 	lfo_bank.fade_step = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_FADE]));
-	
+
+	filter_cutoff = midi.control[MIDI_CUTOFF] >> 1;
+
 	if (midi.control[MIDI_LFO_RESET])
 	{
 		for (uint8_t i = 0; i < USYNTH_LFO_BANK_SIZE; i++)
@@ -107,8 +110,6 @@ static inline void update_controls_2(void)
 		
 		midi.control[MIDI_LFO_RESET] = 0;
 	}
-
-	filter_k = MIDI_CONTROL_TO_S8(midi.control[MIDI_CUTOFF]);
 
 	if (wavetable_number != midi.control[MIDI_WAVETABLE])
 	{
@@ -148,8 +149,13 @@ static inline void update_params(uint8_t id)
 			usynth_lfo_sync(&lfo_bank.lfo[id]);
 	}
 
-	uint16_t note = (midi.voices[id].note << 5) + (midi.pitchbend >> 7) - 64 + midi.control[MIDI_DETUNE] - 64;
-	osc_bank.osc[id].phase_step = get_note_phase_step(note);
+	int16_t note = (int16_t)(midi.voices[id].note << 5) + (int16_t)(midi.pitchbend >> 7) - 64 + midi.control[MIDI_DETUNE] - 64;
+	
+	// Clamp
+	if (note < 0) note = 0;
+	else if (note >= 128 * 32) note = 128 * 32 - 1;
+
+	osc_bank.osc[id].phase_step = 1 + pgm_read_delta_word(notes_table, note);
 	amp_eg_bank.eg[id].gate = midi.voices[id].gate;
 	mod_eg_bank.eg[id].gate = midi.voices[id].gate;
 	lfo_bank.lfo[id].gate = midi.voices[id].gate;
@@ -315,16 +321,18 @@ int main(void)
 
 		ppg_osc_bank_update(&osc_bank);
 
+		// Mixing
 		uint16_t x0, x1;
 		MUL_U16_U16_16H(x0, osc_bank.osc[0].output, amp_eg_bank.eg[0].output);
 		MUL_U16_U8_16H(x0, x0, midi.voices[0].velocity << 1);
 		MUL_U16_U16_16H(x1, osc_bank.osc[1].output, amp_eg_bank.eg[1].output);
 		MUL_U16_U8_16H(x1, x1, midi.voices[1].velocity << 1);
 
+		// Filter
 		int16_t x = (x0 >> 1) + (x1 >> 1) - 32768;
-		static filter1pole fi = 0;
-		x = filter1pole_feed(&fi, midi.control[MIDI_CUTOFF], x);
+		x = filter1pole_feed(&filter, filter_cutoff, x);
 
+		// Output sample
 		dac_data = x + 32768;
 		
 		// Wait for the 'sent' flag and clear it
