@@ -148,7 +148,8 @@ static inline void update_params(uint8_t id)
 			usynth_lfo_sync(&lfo_bank.lfo[id]);
 	}
 
-	osc_bank.osc[id].phase_step = pgm_read_word(midi_notes + midi.voices[id].note);
+	uint16_t note = (midi.voices[id].note << 5) + (midi.pitchbend >> 7) - 64 + midi.control[MIDI_DETUNE] - 64;
+	osc_bank.osc[id].phase_step = get_note_phase_step(note);
 	amp_eg_bank.eg[id].gate = midi.voices[id].gate;
 	mod_eg_bank.eg[id].gate = midi.voices[id].gate;
 	lfo_bank.lfo[id].gate = midi.voices[id].gate;

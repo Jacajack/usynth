@@ -12,7 +12,7 @@ void midi_init(midi_status *midi)
 	midi->channel = 0;
 
 	midi->program = 0;
-	midi->pitchbend = 16384;
+	midi->pitchbend = 8192;
 	midi->reset = 0;
 
 	memset(midi->voices, 0, sizeof(midi_voice));
@@ -191,6 +191,7 @@ static const midi_program_data midi_program_table[] PROGMEM =
 	MIDI_PROGRAM_BEGIN(0xff),
 	{MIDI_WAVETABLE,    0},
 	{MIDI_BASE_WAVE,    64},
+	{MIDI_DETUNE,       64},
 	
 	{MIDI_AMP_ATTACK,   0},
 	{MIDI_AMP_SUSTAIN,  127},
