@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name usynth)(type KiCad)(uri ${KIPRJMOD}/usynth.pretty)(options "")(descr ""))
+)

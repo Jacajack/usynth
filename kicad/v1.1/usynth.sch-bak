@@ -224,28 +224,6 @@ RESET
 Wire Wire Line
 	10500 1450 10400 1450
 $Comp
-L Device:Jumper_NO_Small JP0
-U 1 1 5E29B0F7
-P 2550 7150
-F 0 "JP0" H 3100 7150 50  0000 C CNN
-F 1 "SEL_0" H 2850 7150 50  0000 C CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 2550 7150 50  0001 C CNN
-F 3 "~" H 2550 7150 50  0001 C CNN
-	1    2550 7150
-	1    0    0    -1  
-$EndComp
-$Comp
-L Device:Jumper_NO_Small JP1
-U 1 1 5E29C13B
-P 2550 7050
-F 0 "JP1" H 3100 7050 50  0000 C CNN
-F 1 "SEL_1" H 2850 7050 50  0000 C CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 2550 7050 50  0001 C CNN
-F 3 "~" H 2550 7050 50  0001 C CNN
-	1    2550 7050
-	1    0    0    -1  
-$EndComp
-$Comp
 L Device:Jumper_NO_Small JP2
 U 1 1 5E29C3BE
 P 2550 6950
@@ -267,18 +245,6 @@ F 3 "" H 2650 7250 50  0001 C CNN
 	1    2650 7250
 	1    0    0    -1  
 $EndComp
-Wire Wire Line
-	2650 7250 2650 7150
-Wire Wire Line
-	2650 7150 2650 7050
-Connection ~ 2650 7150
-Wire Wire Line
-	2650 6950 2650 7050
-Connection ~ 2650 7050
-Wire Wire Line
-	2450 7150 2050 7150
-Wire Wire Line
-	2050 7050 2450 7050
 Wire Wire Line
 	2450 6950 2050 6950
 Text Label 2100 6450 0    50   ~ 0
@@ -628,10 +594,6 @@ LED_2
 Text Label 2100 6850 0    50   ~ 0
 LED_3
 NoConn ~ 850  4750
-Text Label 2100 7150 0    50   ~ 0
-SEL_0
-Text Label 2100 7050 0    50   ~ 0
-SEL_1
 Text Label 2100 6950 0    50   ~ 0
 SEL_2
 Wire Wire Line
@@ -1522,4 +1484,8 @@ Wire Wire Line
 	4550 3500 4550 4550
 Text Label 5500 4950 0    50   ~ 0
 DAC_OUT
+Wire Wire Line
+	2650 6950 2650 7250
+NoConn ~ 2050 7050
+NoConn ~ 2050 7150
 $EndSCHEMATC

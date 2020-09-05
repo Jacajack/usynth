@@ -1361,7 +1361,7 @@ U 1 1 5E1F2DAA
 P 4550 4950
 F 0 "U2" H 5000 4650 50  0000 L CNN
 F 1 "MCP4921" H 5000 4750 50  0000 L CNN
-F 2 "Package_SO:MSOP-8_3x3mm_P0.65mm" H 5550 4850 50  0001 C CNN
+F 2 "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm" H 5550 4850 50  0001 C CNN
 F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/22248a.pdf" H 5550 4850 50  0001 C CNN
 	1    4550 4950
 	1    0    0    -1  

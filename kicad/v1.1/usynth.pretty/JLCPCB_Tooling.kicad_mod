@@ -1,0 +1,10 @@
+(module JLCPCB_Tooling (layer F.Cu) (tedit 5F539220)
+  (fp_text reference REF** (at 0 2.54) (layer F.SilkS) hide
+    (effects (font (size 1 1) (thickness 0.15)))
+  )
+  (fp_text value JLCPCB_Tooling (at 0 -2.54) (layer F.Fab)
+    (effects (font (size 1 1) (thickness 0.15)))
+  )
+  (pad "" np_thru_hole circle (at 0 0) (size 1.152 1.152) (drill 1.152) (layers *.Cu *.Mask)
+    (clearance 0.148))
+)
