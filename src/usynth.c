@@ -62,7 +62,7 @@ static midi_status midi;
 static ppg_osc_bank osc_bank;
 static usynth_eg_bank amp_eg_bank;
 static usynth_eg_bank mod_eg_bank;
-static usynth_lfo lfo;
+static usynth_lfo_bank lfo_bank = {.fade_step = 65535};
 static int8_t base_wave;
 static int8_t eg_mod_int;
 static int8_t lfo_mod_int;
@@ -90,8 +90,17 @@ static inline void update_controls(void)
 	mod_eg_bank.release = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_RELEASE]));
 	mod_eg_bank.sustain_enabled = midi.control[MIDI_MOD_ASR];
 
-	lfo.step = MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_RATE]) << 1;
-	lfo.waveform = midi.control[MIDI_LFO_WAVE];
+	lfo_bank.step = MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_RATE]) << 1;
+	lfo_bank.waveform = midi.control[MIDI_LFO_WAVE];
+	lfo_bank.fade_step = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_FADE]));
+	
+	if (midi.control[MIDI_LFO_RESET])
+	{
+		for (uint8_t i = 0; i < USYNTH_LFO_BANK_SIZE; i++)
+			usynth_lfo_sync(&lfo_bank.lfo[i]);
+		
+		midi.control[MIDI_LFO_RESET] = 0;
+	}
 
 	filter_k = MIDI_CONTROL_TO_S8(midi.control[MIDI_CUTOFF]);
 
@@ -110,13 +119,43 @@ static inline void update_controls(void)
 
 /**
 	Updates parameters of oscillators based on modulation.
-	Also responsible for retrigerring EGs
+	Also responsible for retrigerring EGs/LFOs
 */
 static inline void update_params(uint8_t id)
 {
+	if (midi.voices[id].gate & MIDI_GATE_TRIG_BIT)
+	{
+		midi.voices[id].gate = MIDI_GATE_ON_BIT;
+		
+		// Reset EGs
+		amp_eg_bank.eg[id].status = USYNTH_EG_IDLE;
+		amp_eg_bank.eg[id].value = 0;
+		mod_eg_bank.eg[id].status = USYNTH_EG_IDLE;
+		mod_eg_bank.eg[id].value = 0;
+		
+		// Reset oscillator
+		osc_bank.osc[id].phase = 0;
+
+		// Reset LFO
+		lfo_bank.lfo[id].fade = 0;
+		if (midi.control[MIDI_LFO_SYNC])
+			usynth_lfo_sync(&lfo_bank.lfo[id]);
+	}
+
+	osc_bank.osc[id].phase_step = pgm_read_word(midi_notes + midi.voices[id].note);
+	amp_eg_bank.eg[id].gate = midi.voices[id].gate;
+	mod_eg_bank.eg[id].gate = midi.voices[id].gate;
+	lfo_bank.lfo[id].gate = midi.voices[id].gate;
+}
+
+/**
+	Updates modulation (currently used wave)
+*/
+static inline void update_mod(uint8_t id)
+{
 	int16_t mod = base_wave;
-	int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[id].output >> 9)) >> 7;
-	int8_t lfo_mod = (lfo_mod_int * (int8_t)(lfo.output >> 8)) >> 7;
+	int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[id].output >> 9)) >> 7; // Fix modulation intensity to cover 256
+	int8_t lfo_mod = (lfo_mod_int * (int8_t)(lfo_bank.lfo[id].output >> 8)) >> 7;
 	mod += eg_mod;
 	mod += lfo_mod;
 
@@ -124,20 +163,7 @@ static inline void update_params(uint8_t id)
 	if (mod < INT8_MIN) mod = INT8_MIN;
 	else if (mod > INT8_MAX) mod = INT8_MAX;
 
-	if (midi.voices[id].gate & MIDI_GATE_TRIG_BIT)
-	{
-		midi.voices[id].gate = MIDI_GATE_ON_BIT;
-		amp_eg_bank.eg[id].status = USYNTH_EG_IDLE;
-		amp_eg_bank.eg[id].value = 0;
-		mod_eg_bank.eg[id].status = USYNTH_EG_IDLE;
-		mod_eg_bank.eg[id].value = 0;
-		osc_bank.osc[id].phase = 0;
-	}
-
-	osc_bank.osc[id].phase_step = pgm_read_word(midi_notes + midi.voices[id].note);
 	osc_bank.osc[id].wave = pgm_read_byte(mod_table + (uint8_t)(int8_t)mod);
-	amp_eg_bank.eg[id].gate = midi.voices[id].gate;
-	mod_eg_bank.eg[id].gate = midi.voices[id].gate;
 }
 
 int main(void)
@@ -194,50 +220,61 @@ int main(void)
 		switch (--load_balancer_cnt)
 		{
 			// Process all received MIDI commands
-			case 9:
+			case 11:
 				for (uint8_t i = 0; i < midi_len; i++)
 					midi_process_byte(&midi, midi_buffer[i], 0);
 				midi_len = 0;
 				break;
 
 			// Update from MIDI
-			case 8:
-				update_controls();
+			case 10:
+				update_controls(); // TODO split this
 				break;
 
-			// Modulation / EG retriggering 0
-			case 7:
+			// Update control parameters 0
+			case 9:
 				update_params(0);
 				break;
 			
-			// Modulation / EG retriggering 1
-			case 6:
+			// Update control parameters 1
+			case 8:
 				update_params(1);
 				break;
 
 			// AMP EG 0
-			case 5:
+			case 7:
 				usynth_eg_bank_update_eg(&amp_eg_bank, 0);
 				break;
 
 			// AMP EG 1
-			case 4:
+			case 6:
 				usynth_eg_bank_update_eg(&amp_eg_bank, 1);
 				break;
 
 			// MOD EG 0 
-			case 3:
+			case 5:
 				usynth_eg_bank_update_eg(&mod_eg_bank, 0);
 				break;
 
 			// MOD EG 1
-			case 2:
+			case 4:
 				usynth_eg_bank_update_eg(&mod_eg_bank, 1);
 				break;
 
-			// LEDs, LFO and counter reset
+			// LFO 0
+			case 3:
+				usynth_lfo_bank_update_lfo(&lfo_bank, 0);
+				break;
+
+			// LFO 1
+			case 2:
+				usynth_lfo_bank_update_lfo(&lfo_bank, 1);
+				break;
+
+			// Update modulation
 			case 1:
-				usynth_lfo_update(&lfo);
+				update_mod(0);
+				update_mod(1);
 				break;
 
 			// LEDs and counter reset
