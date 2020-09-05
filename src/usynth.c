@@ -114,11 +114,15 @@ static inline void update_controls(void)
 */
 static inline void update_params(uint8_t id)
 {
-	int8_t mod = base_wave;
+	int16_t mod = base_wave;
 	int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg_bank.eg[id].output >> 9)) >> 7;
-	int8_t lfo_mod = (lfo_mod_int * (lfo.output >> 8)) >> 8;
-	mod = safe_add_8(mod, eg_mod);
-	mod = safe_add_8(mod, lfo_mod);
+	int8_t lfo_mod = (lfo_mod_int * (int8_t)(lfo.output >> 8)) >> 7;
+	mod += eg_mod;
+	mod += lfo_mod;
+
+	// Clamp
+	if (mod < INT8_MIN) mod = INT8_MIN;
+	else if (mod > INT8_MAX) mod = INT8_MAX;
 
 	if (midi.voices[id].gate & MIDI_GATE_TRIG_BIT)
 	{
@@ -131,7 +135,7 @@ static inline void update_params(uint8_t id)
 	}
 
 	osc_bank.osc[id].phase_step = pgm_read_word(midi_notes + midi.voices[id].note);
-	osc_bank.osc[id].wave = pgm_read_byte(mod_table + (uint8_t) mod);
+	osc_bank.osc[id].wave = pgm_read_byte(mod_table + (uint8_t)(int8_t)mod);
 	amp_eg_bank.eg[id].gate = midi.voices[id].gate;
 	mod_eg_bank.eg[id].gate = midi.voices[id].gate;
 }
