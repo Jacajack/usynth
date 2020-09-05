@@ -10,9 +10,8 @@
 
 // Wavetable number
 #define MIDI_WAVETABLE    55
-
-// Base wave
 #define MIDI_BASE_WAVE    56
+#define MIDI_DETUNE       57
 
 // Amplifier envelope controls
 #define MIDI_AMP_ATTACK   60
