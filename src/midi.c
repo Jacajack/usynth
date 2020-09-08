@@ -1,8 +1,9 @@
+#include "midi.h"
 #include <stddef.h>
 #include <inttypes.h>
 #include <string.h>
 #include <avr/pgmspace.h>
-#include "midi.h"
+#include "midi_program.h"
 
 void midi_init(midi_status *midi)
 {
