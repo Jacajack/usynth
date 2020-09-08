@@ -10,7 +10,6 @@
 #include "ppg/ppg_osc.h"
 #include "eg.h"
 #include "data/notes_table.h"
-#include "data/mod_table.h"
 #include "data/env_table.h"
 #include "mul.h"
 #include "utils.h"
@@ -176,12 +175,12 @@ static inline void update_mod(uint8_t id)
 	int8_t lfo_mod = (lfo_mod_int * (int8_t)(lfo[id].output >> 8)) >> 7;
 	mod += eg_mod;
 	mod += lfo_mod;
+	mod = 32 + (mod >> 2);
 
 	// Clamp
-	if (mod < INT8_MIN) mod = INT8_MIN;
-	else if (mod > INT8_MAX) mod = INT8_MAX;
-
-	osc[id].wave = pgm_read_byte(mod_table + (uint8_t)(int8_t)mod);
+	if (mod < 0) mod = 0;
+	else if (mod >= PPG_DEFAULT_WAVETABLE_SIZE) mod = PPG_DEFAULT_WAVETABLE_SIZE;
+	osc[id].wave = mod;
 }
 
 int main(void)
