@@ -82,14 +82,14 @@ static inline void update_controls_1(uint8_t voice)
 	eg_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_EG_INT]);
 	lfo_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_LFO_INT]);
 
-	amp_eg[voice].attack  = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_ATTACK]));
+	amp_eg[voice].attack  = pgm_read_word(env_table + midi.control[MIDI_AMP_ATTACK]);
 	amp_eg[voice].sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_SUSTAIN]);
-	amp_eg[voice].release = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_RELEASE]));
+	amp_eg[voice].release = pgm_read_word(env_table + midi.control[MIDI_AMP_RELEASE]);
 	amp_eg[voice].sustain_enabled = midi.control[MIDI_AMP_ASR];
 
-	mod_eg[voice].attack  = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_ATTACK]));
+	mod_eg[voice].attack  = pgm_read_word(env_table + midi.control[MIDI_MOD_ATTACK]);
 	mod_eg[voice].sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_SUSTAIN]);
-	mod_eg[voice].release = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_RELEASE]));
+	mod_eg[voice].release = pgm_read_word(env_table + midi.control[MIDI_MOD_RELEASE]);
 	mod_eg[voice].sustain_enabled = midi.control[MIDI_MOD_ASR];
 }
 
@@ -100,7 +100,7 @@ static inline void update_controls_2(uint8_t voice)
 {
 	lfo[voice].step = MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_RATE]) << 1;
 	lfo[voice].waveform = midi.control[MIDI_LFO_WAVE];
-	lfo[voice].fade_step = pgm_read_word(env_table + MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_FADE]));
+	lfo[voice].fade_step = pgm_read_word(env_table + midi.control[MIDI_LFO_FADE]);
 
 	filter_cutoff = midi.control[MIDI_CUTOFF] >> 1;
 
