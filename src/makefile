@@ -7,7 +7,7 @@ CC = avr-gcc
 OBJDUMP = avr-objdump
 CFLAGS = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -mmcu=$(MCU) -O3 -funroll-loops -flto -Wall
 
-SOURCES = usynth.c midi.c midi_program.c data/notes_table.c data/mod_table.c data/env_table.c ppg/ppg_data.c ppg/ppg.c
+SOURCES = usynth.c midi.c midi_program.c data/notes_table.c data/env_table.c ppg/ppg_data.c ppg/ppg.c
 OBJECTS = $(patsubst %.c,%.o,$(SOURCES))
 DEPENDS = $(patsubst %.c,%.d,$(SOURCES))
 
