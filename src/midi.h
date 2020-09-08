@@ -41,8 +41,9 @@
 // Debug
 #define MIDI_WORKLOAD_CHANNEL 100
 
-#define MIDI_GATE_ON_BIT   1
-#define MIDI_GATE_TRIG_BIT 2
+// Gate states
+#define MIDI_GATE_ON_BIT   (1 << 0)
+#define MIDI_GATE_TRIG_BIT (1 << 1)
 
 typedef struct midi_voice
 {
@@ -81,6 +82,5 @@ typedef struct midi_program_data
 
 extern void midi_init(midi_status *midi);
 extern void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t channel);
-extern void midi_program_load(midi_status *midi, uint8_t id);
 
 #endif

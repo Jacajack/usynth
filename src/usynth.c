@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "midi.h"
+#include "midi_program.h"
 #include "ppg/ppg_osc.h"
 #include "eg.h"
 #include "data/notes_table.h"
