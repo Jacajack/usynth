@@ -179,7 +179,7 @@ static inline void update_mod(uint8_t id)
 
 	// Clamp
 	if (mod < 0) mod = 0;
-	else if (mod >= PPG_DEFAULT_WAVETABLE_SIZE) mod = PPG_DEFAULT_WAVETABLE_SIZE;
+	else if (mod >= PPG_DEFAULT_WAVETABLE_SIZE) mod = PPG_DEFAULT_WAVETABLE_SIZE - 1;
 	osc[id].wave = mod;
 }
 
