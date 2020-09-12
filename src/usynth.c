@@ -30,6 +30,20 @@
 #endif
 
 /**
+	MIDI data buffer capacity. Has to be a power of two.
+*/
+#ifndef MIDI_BUFFER_SIZE
+#define MIDI_BUFFER_SIZE 32
+#endif
+
+/**
+	MIDI data buffer - written in interrupt, read in the main loop
+	\warning MIDI_BUFFER_SIZE has to be a power of 2
+*/
+static volatile uint8_t midi_buffer[MIDI_BUFFER_SIZE];
+static volatile uint8_t midi_len = 0;
+
+/**
 	Main interrupt - sends a new sample to the DAC
 */
 volatile uint16_t dac_data = 0;
@@ -46,6 +60,13 @@ ISR(TIMER1_COMPB_vect)
 	SPDR = data;
 	while (!(SPSR & (1 << SPIF)));
 	
+	// Check incoming USART data and buffer it
+	// No need for a while loop here - this interrupt
+	// is frequent enough
+	midi_len &= MIDI_BUFFER_SIZE - 1;
+	if (UCSR0A & (1 << RXC0))
+		midi_buffer[midi_len++] = UDR0;
+
 	// Force compare event to set CS high
 	TCCR1A = (1 << COM1B0) | (1 << COM1B1);
 	TCCR1C |= (1 << FOC1B);
@@ -69,8 +90,6 @@ static uint8_t wavetable_number = 255;
 
 // MIDI
 static midi_status midi;
-static uint8_t midi_buffer[8];
-static uint8_t midi_len = 0;
 
 /**
 	Updates synth state based on MIDI control parameters (part 1)
@@ -229,10 +248,6 @@ int main(void)
 	uint8_t load_balancer_cnt = 0;
 	while (1)
 	{
-		// Check incoming USART data and buffer it
-		if (UCSR0A & (1 << RXC0))
-			midi_buffer[midi_len++] = UDR0;
-
 		// Distribute workload evenly across each 16 samples
 		switch (load_balancer_cnt++)
 		{
