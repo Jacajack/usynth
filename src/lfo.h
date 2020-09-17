@@ -2,7 +2,6 @@
 #define USYNTH_LFO
 
 #include <inttypes.h>
-#include "config.h"
 
 #define USYNTH_LFO_TRIANGLE 0
 #define USYNTH_LFO_SQUARE   1

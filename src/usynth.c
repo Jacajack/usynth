@@ -4,17 +4,17 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-#include "config.h"
+#include "utils.h"
+#include "mul.h"
 #include "midi.h"
 #include "midi_program.h"
+#include "midi_cc.h"
 #include "ppg/ppg_osc.h"
 #include "eg.h"
+#include "lfo.h"
+#include "filter.h"
 #include "data/notes_table.h"
 #include "data/env_table.h"
-#include "mul.h"
-#include "utils.h"
-#include "filter.h"
-#include "lfo.h"
 
 #ifndef F_CPU
 #error F_CPU is not defined!
@@ -76,130 +76,134 @@ ISR(TIMER1_COMPB_vect)
 	dac_sent = 1;
 }
 
+typedef struct usynth_voice
+{
+	ppg_osc osc;
+	usynth_eg amp_eg;
+	usynth_eg mod_eg;
+	usynth_lfo lfo;
+	int8_t base_wave;
+	int8_t eg_mod_int;
+	int8_t lfo_mod_int;
+	uint8_t wavetable_number;
+} usynth_voice;
+
+
 // Synth globals
-static ppg_osc osc[2];
-static usynth_eg amp_eg[2];
-static usynth_eg mod_eg[2];
-static usynth_lfo lfo[2];
+static usynth_voice voices[2];
 static filter1pole filter;
-static int8_t base_wave;
-static int8_t eg_mod_int;
-static int8_t lfo_mod_int;
 static int8_t filter_cutoff;
-static uint8_t wavetable_number = 255;
 
 // MIDI
 static midi_status midi;
+static uint8_t poly_mode = 1;
+
+// For mapping MIDI CC values to uint8_t and int8_t 
+#define MIDI_CTL(x) (midi.control[(x)])
+#define MIDI_CTL_S8(x) (((int8_t)(MIDI_CTL((x))) - 64) << 1)
+#define MIDI_CTL_U8(x) ((MIDI_CTL((x))) << 1)
 
 /**
-	Updates synth state based on MIDI control parameters (part 1)
+	Updates voice state based on MIDI control parameters (part 1)
+	\param cc_set determines from which MIDI CC set to update
 */
-static inline void update_controls_1(uint8_t voice)
+static inline void voice_update_cc_1(usynth_voice *v, uint8_t cc_set)
 {
-	// TODO
-	base_wave = MIDI_CONTROL_TO_S8(midi.control[MIDI_BASE_WAVE]);
-	eg_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_EG_INT]);
-	lfo_mod_int = MIDI_CONTROL_TO_S8(midi.control[MIDI_MOD_LFO_INT]);
+	v->base_wave = MIDI_CTL_S8(MIDI_OSC_BASE_WAVE(cc_set));
+	v->eg_mod_int = MIDI_CTL_S8(MIDI_EG_MOD_INT(cc_set));
+	v->lfo_mod_int = MIDI_CTL_S8(MIDI_LFO_MOD_INT(cc_set));
 
-	amp_eg[voice].attack  = pgm_read_word(env_table + midi.control[MIDI_AMP_ATTACK]);
-	amp_eg[voice].sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_AMP_SUSTAIN]);
-	amp_eg[voice].release = pgm_read_word(env_table + midi.control[MIDI_AMP_RELEASE]);
-	amp_eg[voice].sustain_enabled = midi.control[MIDI_AMP_ASR];
+	v->amp_eg.attack  = pgm_read_word(env_table + MIDI_CTL(MIDI_AMP_A(cc_set)));
+	v->amp_eg.sustain = MIDI_CTL_U8(MIDI_AMP_S(cc_set));
+	v->amp_eg.release = pgm_read_word(env_table + MIDI_CTL(MIDI_AMP_R(cc_set)));
+	v->amp_eg.sustain_enabled = MIDI_CTL(MIDI_AMP_ASR(cc_set));
 
-	mod_eg[voice].attack  = pgm_read_word(env_table + midi.control[MIDI_MOD_ATTACK]);
-	mod_eg[voice].sustain = MIDI_CONTROL_TO_U8(midi.control[MIDI_MOD_SUSTAIN]);
-	mod_eg[voice].release = pgm_read_word(env_table + midi.control[MIDI_MOD_RELEASE]);
-	mod_eg[voice].sustain_enabled = midi.control[MIDI_MOD_ASR];
+	v->mod_eg.attack  = pgm_read_word(env_table + MIDI_CTL(MIDI_EG_A(cc_set)));
+	v->mod_eg.sustain = MIDI_CTL_U8(MIDI_EG_S(cc_set));
+	v->mod_eg.release = pgm_read_word(env_table + MIDI_CTL(MIDI_EG_R(cc_set)));
+	v->mod_eg.sustain_enabled = MIDI_CTL(MIDI_EG_ASR(cc_set));
 }
 
 /**
-	Updates synth state based on MIDI control parameters (part 2)
+	Updates voice state based on MIDI control parameters (part 2)
+	\param cc_set determines from which MIDI CC set to update
 */
-static inline void update_controls_2(uint8_t voice)
+static inline void voice_update_cc_2(usynth_voice *v, uint8_t cc_set)
 {
-	lfo[voice].step = MIDI_CONTROL_TO_U8(midi.control[MIDI_LFO_RATE]) << 1;
-	lfo[voice].waveform = midi.control[MIDI_LFO_WAVE];
-	lfo[voice].fade_step = pgm_read_word(env_table + midi.control[MIDI_LFO_FADE]);
-
-	filter_cutoff = midi.control[MIDI_CUTOFF] >> 1;
-
-	// Resets phase of all LFOs
-	if (midi.control[MIDI_LFO_RESET])
-	{
-		midi.control[MIDI_LFO_RESET] = 0;
-		usynth_lfo_sync(&lfo[1]);
-		usynth_lfo_sync(&lfo[0]);	
-	}
+	v->lfo.step = MIDI_CTL_U8(MIDI_LFO_RATE(cc_set)) << 1;
+	v->lfo.waveform = MIDI_CTL(MIDI_LFO_WAVE(cc_set));
+	v->lfo.fade_step = pgm_read_word(env_table + MIDI_CTL(MIDI_LFO_FADE(cc_set)));
 
 	// Loads wavetable when it changes
-	if (wavetable_number != midi.control[MIDI_WAVETABLE])
+	if (v->wavetable_number != MIDI_CTL(MIDI_OSC_WAVETABLE(cc_set)))
 	{
-		wavetable_number = midi.control[MIDI_WAVETABLE];
-		wavetable_number = wavetable_number >= PPG_WAVETABLE_COUNT ? PPG_WAVETABLE_COUNT - 1 : wavetable_number;
+		v->wavetable_number = MIDI_CTL(MIDI_OSC_WAVETABLE(cc_set));
+		v->wavetable_number = v->wavetable_number >= PPG_WAVETABLE_COUNT ? PPG_WAVETABLE_COUNT - 1 : v->wavetable_number;
 
 		// Write back to the MIDI controls array, so the wavetable
 		// is not reloaded over and over if it's out of range
-		midi.control[MIDI_WAVETABLE] = wavetable_number;
+		MIDI_CTL(MIDI_OSC_WAVETABLE(cc_set)) = v->wavetable_number;
 
-		ppg_osc_load_wavetable(&osc[0], wavetable_number);
-		ppg_osc_load_wavetable(&osc[1], wavetable_number);
+		ppg_osc_load_wavetable(&v->osc, v->wavetable_number);
 	}
 }
 
 /**
-	Updates parameters of oscillators based on modulation.
+	Updates voice's oscillator.
 	Also responsible for retrigerring EGs/LFOs
+	\param cc_set determines from which MIDI CC set to update
+	\param midi_voice determines polyphony voice ID to use
 */
-static inline void update_params(uint8_t voice)
+static inline void voice_update(usynth_voice *v, uint8_t cc_set, uint8_t midi_voice)
 {
 	// Executed once on keypress
-	if (midi.voices[voice].gate & MIDI_GATE_TRIG_BIT)
+	if (midi.voices[midi_voice].gate & MIDI_GATE_TRIG_BIT)
 	{
-		midi.voices[voice].gate = MIDI_GATE_ON_BIT;
-		
 		// Reset EGs
-		amp_eg[voice].status = USYNTH_EG_IDLE;
-		amp_eg[voice].value = 0;
-		mod_eg[voice].status = USYNTH_EG_IDLE;
-		mod_eg[voice].value = 0;
+		v->amp_eg.status = USYNTH_EG_IDLE;
+		v->amp_eg.value = 0;
+		v->mod_eg.status = USYNTH_EG_IDLE;
+		v->mod_eg.value = 0;
 		
 		// Reset oscillator
-		osc[voice].phase = 0;
+		v->osc.phase = 0;
 
 		// Reset LFO
-		lfo[voice].fade = 0;
-		if (midi.control[MIDI_LFO_SYNC])
-			usynth_lfo_sync(&lfo[voice]);
+		v->lfo.fade = 0;
+		if (MIDI_CTL(MIDI_LFO_SYNC))
+			usynth_lfo_sync(&v->lfo);
 	}
 
-	int16_t note = (int16_t)(midi.voices[voice].note << 5) + (int16_t)(midi.pitchbend >> 7) - 64 + midi.control[MIDI_DETUNE] - 64;
+	int16_t note = (int16_t)midi.voices[midi_voice].note + MIDI_CTL(MIDI_OSC_PITCH(cc_set)) - 64;
+	note <<= 5;
+	note += (int16_t)(midi.pitchbend >> 7) - 64 + MIDI_CTL(MIDI_OSC_DETUNE(cc_set)) - 64;
 	
 	// Clamp
 	if (note < 0) note = 0;
 	else if (note >= 128 * 32) note = 128 * 32 - 1;
 
-	osc[voice].phase_step = 1 + pgm_read_delta_word(notes_table, note);
-	amp_eg[voice].gate = midi.voices[voice].gate;
-	mod_eg[voice].gate = midi.voices[voice].gate;
-	lfo[voice].gate = midi.voices[voice].gate;
+	v->osc.phase_step = 1 + pgm_read_delta_word(notes_table, note);
+	v->amp_eg.gate = midi.voices[midi_voice].gate;
+	v->mod_eg.gate = midi.voices[midi_voice].gate;
+	v->lfo.gate = midi.voices[midi_voice].gate;
 }
 
 /**
-	Updates modulation (currently used wave)
+	Updates currently used waveform
 */
-static inline void update_mod(uint8_t id)
+static inline void voice_update_mod(usynth_voice *v)
 {
-	int16_t mod = base_wave;
-	int8_t eg_mod = (eg_mod_int * (int8_t)(mod_eg[id].output >> 9)) >> 7; // TODO Fix modulation intensity to cover 256
-	int8_t lfo_mod = (lfo_mod_int * (int8_t)(lfo[id].output >> 8)) >> 7;
+	int16_t mod = v->base_wave;
+	int8_t eg_mod = (v->eg_mod_int * (int8_t)(v->mod_eg.output >> 9)) >> 7; // TODO Fix modulation intensity to cover 256
+	int8_t lfo_mod = (v->lfo_mod_int * (int8_t)(v->lfo.output >> 8)) >> 7;
 	mod += eg_mod;
 	mod += lfo_mod;
 	mod = 32 + (mod >> 2);
 
 	// Clamp
 	if (mod < 0) mod = 0;
-	else if (mod >= PPG_DEFAULT_WAVETABLE_SIZE) mod = PPG_DEFAULT_WAVETABLE_SIZE - 1;
-	osc[id].wave = mod;
+	else if (mod > PPG_DEFAULT_WAVETABLE_SIZE - 1) mod = PPG_DEFAULT_WAVETABLE_SIZE - 1;
+	v->osc.wave = mod;
 }
 
 int main(void)
@@ -239,7 +243,12 @@ int main(void)
 	
 	// -------------- HW init done
 
-	midi_init(&midi);
+	// Force wavetable reload by storing a fake number
+	voices[0].wavetable_number = 255;
+	voices[1].wavetable_number = 255;
+
+	poly_mode = 1;
+	midi_init(&midi, 2);
 	midi_program_load(&midi, 0);
 
 	sei();
@@ -260,82 +269,101 @@ int main(void)
 
 			// Update from MIDI (1/2) (Voice 0)
 			case 1:
-				update_controls_1(0);
+				voice_update_cc_1(&voices[0], 0);
 				break;
 
 			// Update from MIDI (2/2) (Voice 0)
 			case 2:
-				update_controls_2(0);
+				voice_update_cc_2(&voices[0], 0);
 				break;
 
 			// Update from MIDI (1/2) (Voice 1)
 			case 3:
-				update_controls_1(1);
+				if (MIDI_CTL(MIDI_POLY))
+					voice_update_cc_1(&voices[1], 0);
+				else
+					voice_update_cc_1(&voices[1], 1);
 				break;
 
 			// Update from MIDI (2/2) (Voice 1)
 			case 4:
-				update_controls_2(1);
+				voice_update_cc_2(&voices[1], !MIDI_CTL(MIDI_POLY));
 				break;
 
 			// Update control parameters 0
 			case 5:
-				update_params(0);
+				voice_update(&voices[0], 0, 0);
 				break;
 			
 			// Update control parameters 1
 			case 6:
-				update_params(1);
+				voice_update(&voices[1], !MIDI_CTL(MIDI_POLY), !!MIDI_CTL(MIDI_POLY));
+
+				// Filter control
+				filter_cutoff = MIDI_CTL(MIDI_CUTOFF) >> 1;
+
+				// Resets phase of all LFOs
+				if (MIDI_CTL(MIDI_LFO_RESET))
+				{
+					MIDI_CTL(MIDI_LFO_RESET) = 0;
+					usynth_lfo_sync(&voices[0].lfo);
+					usynth_lfo_sync(&voices[1].lfo);	
+				}
 				break;
 
 			// AMP EG 0
 			case 7:
-				usynth_eg_update(&amp_eg[0]);
+				// Clear 'triggered' gate bits
+				poly_mode = MIDI_CTL(MIDI_POLY);
+				midi.voice_count = MIDI_CTL(MIDI_POLY) + 1;
+				midi_clear_trig_bits(&midi);
+
+				usynth_eg_update(&voices[0].amp_eg);
 				break;
 
 			// AMP EG 1
 			case 8:
-				usynth_eg_update(&amp_eg[1]);
+				usynth_eg_update(&voices[1].amp_eg);
 				break;
 
 			// MOD EG 0 
 			case 9:
-				usynth_eg_update(&mod_eg[0]);
+				usynth_eg_update(&voices[0].mod_eg);
 				break;
 
 			// MOD EG 1
 			case 10:
-				usynth_eg_update(&mod_eg[1]);
+				usynth_eg_update(&voices[1].mod_eg);
 				break;
 
 			// LFO 0
 			case 11:
-				usynth_lfo_update(&lfo[0]);
+				usynth_lfo_update(&voices[0].lfo);
 				break;
 
 			// LFO 1
 			case 12:
-				usynth_lfo_update(&lfo[1]);
+				usynth_lfo_update(&voices[1].lfo);
 				break;
 
 			// Update modulation 0
 			case 13:
-				update_mod(0);
+				voice_update_mod(&voices[0]);
 				break;
 
 			// Update modulation 1
 			case 14:
-				update_mod(1);
+				voice_update_mod(&voices[1]);
 				break;
 
 			// LEDs and counter reset
 			case 15:
-				if (amp_eg[0].output >> 8)
+				if (voices[0].amp_eg.output >> 8)
 					PORTD |= (1 << LED_RED_PIN);
 				else
 					PORTD &= ~(1 << LED_RED_PIN);
 
-				if (amp_eg[1].output >> 8)
+				if (voices[1].amp_eg.output >> 8)
 					PORTD |= (1 << LED_YLW_PIN);
 				else
 					PORTD &= ~(1 << LED_YLW_PIN);
@@ -348,15 +376,15 @@ int main(void)
 				break;
 		}
 
-		ppg_osc_update(&osc[0]);
-		ppg_osc_update(&osc[1]);
+		ppg_osc_update(&voices[0].osc);
+		ppg_osc_update(&voices[1].osc);
 
 		// Mixing
 		uint16_t x0, x1;
-		MUL_U16_U16_16H(x0, osc[0].output, amp_eg[0].output);
+		MUL_U16_U16_16H(x0, voices[0].osc.output, voices[0].amp_eg.output);
 		MUL_U16_U8_16H(x0, x0, midi.voices[0].velocity << 1);
-		MUL_U16_U16_16H(x1, osc[1].output, amp_eg[1].output);
-		MUL_U16_U8_16H(x1, x1, midi.voices[1].velocity << 1);
+		MUL_U16_U16_16H(x1, voices[1].osc.output, voices[1].amp_eg.output);
+		MUL_U16_U8_16H(x1, x1, midi.voices[MIDI_CTL(MIDI_POLY)].velocity << 1);
 
 		// Filter
 		int16_t x = (x0 >> 1) + (x1 >> 1) - 32768;
@@ -368,7 +396,7 @@ int main(void)
 		// Wait for the 'sent' flag and clear it
 		while (!dac_sent)
 		{
-			if (load_balancer_cnt == midi.control[MIDI_WORKLOAD_CHANNEL]) PORTD |= (1 << LED_GRN_PIN);
+			if (load_balancer_cnt == MIDI_CTL(MIDI_DEBUG_CHANNEL)) PORTD |= (1 << LED_GRN_PIN);
 		}
 		PORTD &= ~(1 << LED_GRN_PIN);
 		dac_sent = 0;

@@ -4,8 +4,6 @@
 #include "ppg.h"
 #include "ppg_data.h"
 
-#include "../config.h"
-
 typedef struct ppg_osc
 {
 	ppg_wavetable_entry wt[PPG_DEFAULT_WAVETABLE_SIZE];

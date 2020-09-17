@@ -1,8 +1,6 @@
 #ifndef USYNTH_H
 #define USYNTH_H
 
-#include "config.h"
-
 // LED IO defs
 #define LED_1_PIN 2
 #define LED_2_PIN 3
