@@ -1,7 +1,6 @@
 #ifndef EG_H
 #define EG_H
 
-#include "config.h"
 #include "mul.h"
 
 #define USYNTH_EG_IDLE    0

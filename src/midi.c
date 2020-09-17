@@ -5,18 +5,19 @@
 #include <avr/pgmspace.h>
 #include "midi_program.h"
 
-void midi_init(midi_status *midi)
+void midi_init(midi_status *midi, uint8_t voice_count)
 {
 	midi->dlim = 0;
 	midi->dcnt = 0;
 	midi->status = 0;
 	midi->channel = 0;
+	midi->voice_count = voice_count;
 
 	midi->program = 0;
 	midi->pitchbend = 8192;
 	midi->reset = 0;
 
-	memset(midi->voices, 0, sizeof(midi_voice));
+	memset(midi->voices, 0, sizeof(midi_voice) * MIDI_MAX_VOICES);
 	memset(midi->control, 0, 128);
 }
 
@@ -26,12 +27,12 @@ void midi_init(midi_status *midi)
 */
 static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocity)
 {
-	uint8_t oldest_empty_slot = MIDI_VOICES;
+	uint8_t oldest_empty_slot = MIDI_MAX_VOICES;
 	uint8_t oldest_active_slot = 0;
 	int8_t oldest_empty = -1;
 	int8_t oldest_active = -1;
 
-	for (uint8_t i = 0; i < MIDI_VOICES; i++)
+	for (uint8_t i = 0; i < midi->voice_count; i++)
 	{
 		int8_t age = midi->voices[i].age;
 
@@ -54,11 +55,11 @@ static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocit
 	}
 
 	// Increment age of all voices
-	for (uint8_t i = 0; i < MIDI_VOICES; i++)
+	for (uint8_t i = 0; i < midi->voice_count; i++)
 		midi->voices[i].age++;
 
 	// Always prefer empty slot over reuse
-	uint8_t slot = oldest_empty_slot == MIDI_VOICES ? oldest_active_slot : oldest_empty_slot;
+	uint8_t slot = oldest_empty_slot == MIDI_MAX_VOICES ? oldest_active_slot : oldest_empty_slot;
 	midi->voices[slot].gate = MIDI_GATE_ON_BIT | MIDI_GATE_TRIG_BIT;
 	midi->voices[slot].note = note;
 	midi->voices[slot].velocity = velocity;
@@ -67,7 +68,7 @@ static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocit
 
 static inline void midi_note_off(midi_status *midi, uint8_t note)
 {
-	for (uint8_t i = 0; i < MIDI_VOICES; i++)
+	for (uint8_t i = 0; i < MIDI_MAX_VOICES; i++)
 		if (midi->voices[i].note == note)
 			midi->voices[i].gate = 0;
 }
@@ -177,4 +178,10 @@ void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t channel)
 	midi->dlim = dlim;
 	midi->dcnt = dcnt;
 	midi->status = status;
+}
+
+void midi_clear_trig_bits(midi_status *midi)
+{
+	for (uint8_t i = 0; i < MIDI_MAX_VOICES; i++)
+		midi->voices[i].gate &= ~MIDI_GATE_TRIG_BIT;
 }

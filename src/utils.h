@@ -2,10 +2,7 @@
 #define UTILS_H
 
 #include <inttypes.h>
-
-#define SAFE_ADD_INT8(res, x) if ((x) > 0) {if (127 - (x) < (res)) (res) = 127; else (res) += (x);} else {if (-128 - (x) > (res)) (res) = -128; else (res) += (x);}
-#define MIDI_CONTROL_TO_S8(x) (((int8_t)(x) - 64) << 1)
-#define MIDI_CONTROL_TO_U8(x) ((x) << 1)
+#include <avr/pgmspace.h>
 
 //! Safe int8_t add (no overflow and underflow)
 static inline int8_t safe_add_8(int8_t a, int8_t b)
@@ -41,11 +38,11 @@ static inline int32_t safe_add_32(int32_t a, int32_t b)
 static inline uint16_t pgm_read_delta_word(const uint8_t *ptr, uint16_t n)
 {
 	uint16_t offset = (n >> 1) * 3;
-	uint16_t base_word = pgm_read_word(notes_table + offset);
+	uint16_t base_word = pgm_read_word(ptr + offset);
 
 	if (n & 1)
 	{
-		uint8_t delta_byte = pgm_read_byte(notes_table + offset + 2);
+		uint8_t delta_byte = pgm_read_byte(ptr + offset + 2);
 		return base_word + delta_byte;
 	}
 	else
