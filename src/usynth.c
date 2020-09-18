@@ -46,8 +46,8 @@ static volatile uint8_t midi_len = 0;
 /**
 	Main interrupt - sends a new sample to the DAC
 */
-volatile uint16_t dac_data = 0;
-volatile uint8_t dac_sent = 0;
+static volatile uint16_t dac_data = 0;
+static volatile uint8_t dac_sent = 0;
 ISR(TIMER1_COMPB_vect)
 {
 	// CS is automatically set low
@@ -84,11 +84,13 @@ static int8_t filter_cutoff;
 // MIDI
 static midi_status midi;
 static uint8_t poly_mode = 1;
+static uint8_t midi_voice_offset = 0;
 
 // For mapping MIDI CC values to uint8_t and int8_t 
 #define MIDI_CTL(x) (midi.control[(x)])
 #define MIDI_CTL_S8(x) (((int8_t)(MIDI_CTL((x))) - 64) << 1)
 #define MIDI_CTL_U8(x) ((MIDI_CTL((x))) << 1)
+#define MIDI_CTL_BOOL(x) (MIDI_CTL(x) != 0)
 
 /**
 	Updates voice state based on MIDI control parameters (part 1)
@@ -189,6 +191,33 @@ static inline void voice_update_mod(usynth_voice *v)
 	v->osc.wave = mod;
 }
 
+/**
+	Updates global/common synth state
+*/
+static inline void update_global(void)
+{
+	// Resets phase of all LFOs
+	if (MIDI_CTL(MIDI_LFO_RESET))
+	{
+		MIDI_CTL(MIDI_LFO_RESET) = 0;
+		usynth_lfo_sync(&voices[0].lfo);
+		usynth_lfo_sync(&voices[1].lfo);	
+	}
+
+	// Filter control
+	filter_cutoff = MIDI_CTL(MIDI_CUTOFF) >> 1;
+
+	// Mono/poly and cluster logic
+	uint8_t cluster_size = CLAMP(MIDI_CTL(MIDI_CLUSTER_SIZE), 1, MIDI_MAX_VOICES / 2);
+	uint8_t cluster_id = MIN(MIDI_CTL(MIDI_CLUSTER_ID), cluster_size - 1);
+	poly_mode = MIDI_CTL(MIDI_POLY) != 0;
+	midi.voice_count = (poly_mode + 1) * cluster_size;
+	midi_voice_offset = (poly_mode + 1) * cluster_id;
+
+	// Clear 'triggered' gate bits
+	midi_clear_trig_bits(&midi);
+}
+
 int main(void)
 {
 	// LEDs
@@ -230,9 +259,10 @@ int main(void)
 	voices[0].wavetable_number = 255;
 	voices[1].wavetable_number = 255;
 
-	poly_mode = 1;
 	midi_init(&midi, 2);
 	midi_program_load(&midi, 0);
+	MIDI_CTL(MIDI_CLUSTER_SIZE) = 1;
+	MIDI_CTL(MIDI_CLUSTER_ID) = 0;
 
 	sei();
 
@@ -262,7 +292,7 @@ int main(void)
 
 			// Update from MIDI (1/2) (Voice 1)
 			case 3:
-				if (MIDI_CTL(MIDI_POLY))
+				if (poly_mode)
 					voice_update_cc_1(&voices[1], 0);
 				else
 					voice_update_cc_1(&voices[1], 1);
@@ -270,77 +300,66 @@ int main(void)
 
 			// Update from MIDI (2/2) (Voice 1)
 			case 4:
-				voice_update_cc_2(&voices[1], !MIDI_CTL(MIDI_POLY));
+				voice_update_cc_2(&voices[1], !poly_mode);
 				break;
 
 			// Update control parameters 0
 			case 5:
-				voice_update(&voices[0], 0, 0);
+				voice_update(&voices[0], 0, midi_voice_offset);
 				break;
 			
 			// Update control parameters 1
 			case 6:
-				voice_update(&voices[1], !MIDI_CTL(MIDI_POLY), !!MIDI_CTL(MIDI_POLY));
-
-				// Filter control
-				filter_cutoff = MIDI_CTL(MIDI_CUTOFF) >> 1;
-
-				// Resets phase of all LFOs
-				if (MIDI_CTL(MIDI_LFO_RESET))
-				{
-					MIDI_CTL(MIDI_LFO_RESET) = 0;
-					usynth_lfo_sync(&voices[0].lfo);
-					usynth_lfo_sync(&voices[1].lfo);	
-				}
+				voice_update(&voices[1], !poly_mode, midi_voice_offset + poly_mode);
 				break;
 
+			// Update global/common controls
+			case 7:	
+				update_global();
+				break;
+				
 			// AMP EG 0
-			case 7:
-				// Clear 'triggered' gate bits
-				poly_mode = MIDI_CTL(MIDI_POLY);
-				midi.voice_count = MIDI_CTL(MIDI_POLY) + 1;
-				midi_clear_trig_bits(&midi);
-
+			case 8:
 				usynth_eg_update(&voices[0].amp_eg);
 				break;
 
 			// AMP EG 1
-			case 8:
+			case 9:
 				usynth_eg_update(&voices[1].amp_eg);
 				break;
 
 			// MOD EG 0 
-			case 9:
+			case 10:
 				usynth_eg_update(&voices[0].mod_eg);
 				break;
 
 			// MOD EG 1
-			case 10:
+			case 11:
 				usynth_eg_update(&voices[1].mod_eg);
 				break;
 
 			// LFO 0
-			case 11:
+			case 12:
 				usynth_lfo_update(&voices[0].lfo);
 				break;
 
 			// LFO 1
-			case 12:
+			case 13:
 				usynth_lfo_update(&voices[1].lfo);
 				break;
 
 			// Update modulation 0
-			case 13:
+			case 14:
 				voice_update_mod(&voices[0]);
 				break;
 
 			// Update modulation 1
-			case 14:
+			case 15:
 				voice_update_mod(&voices[1]);
 				break;
 
 			// LEDs and counter reset
-			case 15:
+			case 16:
 				if (voices[0].amp_eg.output >> 8)
 					PORTD |= (1 << LED_RED_PIN);
 				else
@@ -365,9 +384,9 @@ int main(void)
 		// Mixing
 		uint16_t x0, x1;
 		MUL_U16_U16_16H(x0, voices[0].osc.output, voices[0].amp_eg.output);
-		MUL_U16_U8_16H(x0, x0, midi.voices[0].velocity << 1);
+		MUL_U16_U8_16H(x0, x0, midi.voices[midi_voice_offset].velocity << 1);
 		MUL_U16_U16_16H(x1, voices[1].osc.output, voices[1].amp_eg.output);
-		MUL_U16_U8_16H(x1, x1, midi.voices[MIDI_CTL(MIDI_POLY)].velocity << 1);
+		MUL_U16_U8_16H(x1, x1, midi.voices[midi_voice_offset + poly_mode].velocity << 1);
 
 		// Filter
 		int16_t x = (x0 >> 1) + (x1 >> 1) - 32768;

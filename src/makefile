@@ -1,12 +1,13 @@
 F_CPU = 20000000UL
 F_SAMPLE = 28000
 MIDI_BAUD = 31250
-MIDI_MAX_VOICES = 8
+MIDI_MAX_VOICES = 16
 MCU = atmega328p
 
 CC = avr-gcc
 OBJDUMP = avr-objdump
-CFLAGS = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -DMIDI_MAX_VOICES=$(MIDI_MAX_VOICES) -mmcu=$(MCU) -O3 -funroll-loops -flto -Wall
+DEFINES = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -DMIDI_MAX_VOICES=$(MIDI_MAX_VOICES)
+CFLAGS = $(DEFINES) -mmcu=$(MCU) -O2 -funroll-loops -g -fomit-frame-pointer -faggressive-loop-optimizations -flto -Wall
 
 SOURCES = usynth.c midi.c midi_program.c data/notes_table.c data/env_table.c ppg/ppg_data.c ppg/ppg.c
 OBJECTS = $(patsubst %.c,%.o,$(SOURCES))
@@ -32,4 +33,4 @@ prog: usynth.elf
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 %.lss: %.elf
-	$(OBJDUMP) -h -S $< > $@
+	$(OBJDUMP) -drwCSg $< > $@
