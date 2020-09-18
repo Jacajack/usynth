@@ -30,18 +30,10 @@
 #endif
 
 /**
-	MIDI data buffer capacity. Has to be a power of two.
+	MIDI data ring buffer - written in interrupt, read in the main loop
 */
-#ifndef MIDI_BUFFER_SIZE
-#define MIDI_BUFFER_SIZE 32
-#endif
-
-/**
-	MIDI data buffer - written in interrupt, read in the main loop
-	\warning MIDI_BUFFER_SIZE has to be a power of 2
-*/
-static volatile uint8_t midi_buffer[MIDI_BUFFER_SIZE];
-static volatile uint8_t midi_len = 0;
+static volatile uint8_t midi_buffer[256];
+static volatile uint8_t midi_wcnt = 0;
 
 /**
 	Main interrupt - sends a new sample to the DAC
@@ -63,9 +55,8 @@ ISR(TIMER1_COMPB_vect)
 	// Check incoming USART data and buffer it
 	// No need for a while loop here - this interrupt
 	// is frequent enough
-	midi_len &= MIDI_BUFFER_SIZE - 1;
 	if (UCSR0A & (1 << RXC0))
-		midi_buffer[midi_len++] = UDR0;
+		midi_buffer[midi_wcnt++] = UDR0;
 
 	// Force compare event to set CS high
 	TCCR1A = (1 << COM1B0) | (1 << COM1B1);
@@ -270,30 +261,44 @@ int main(void)
 
 	// The main loop
 	uint8_t load_balancer_cnt = 0;
+	uint8_t midi_rcnt = 0;
 	while (1)
 	{
-		// Distribute workload evenly across each 16 samples
+		/*
+			Distribute workload evenly across each 20 samples
+			
+			31250 / 8 / 28000 * 20 = ~2.8 which means that reading
+			MIDI data bytes in the loop is sufficient
+		*/
 		switch (load_balancer_cnt++)
 		{
-			// Process all received MIDI commands
+			// Process MIDI byte
 			case 0:
-				for (uint8_t i = 0; i < midi_len; i++)
-					midi_process_byte(&midi, midi_buffer[i], 0);
-				midi_len = 0;
+				if (midi_rcnt != midi_wcnt) midi_process_byte(&midi, midi_buffer[midi_rcnt++], 0);
+				break;
+
+			// Process MIDI byte
+			case 1:
+				if (midi_rcnt != midi_wcnt) midi_process_byte(&midi, midi_buffer[midi_rcnt++], 0);
+				break;
+
+			// Process MIDI byte
+			case 2:
+				if (midi_rcnt != midi_wcnt) midi_process_byte(&midi, midi_buffer[midi_rcnt++], 0);
 				break;
 
 			// Update from MIDI (1/2) (Voice 0)
-			case 1:
+			case 3:
 				voice_update_cc_1(&voices[0], 0);
 				break;
 
 			// Update from MIDI (2/2) (Voice 0)
-			case 2:
+			case 4:
 				voice_update_cc_2(&voices[0], 0);
 				break;
 
 			// Update from MIDI (1/2) (Voice 1)
-			case 3:
+			case 5:
 				if (poly_mode)
 					voice_update_cc_1(&voices[1], 0);
 				else
@@ -301,72 +306,72 @@ int main(void)
 				break;
 
 			// Update from MIDI (2/2) (Voice 1)
-			case 4:
+			case 6:
 				voice_update_cc_2(&voices[1], !poly_mode);
 				break;
 
 			// Update control parameters 0
-			case 5:
+			case 7:
 				voice_update(&voices[0], 0, midi_voice_offset);
 				break;
 			
 			// Update control parameters 1
-			case 6:
+			case 8:
 				voice_update(&voices[1], !poly_mode, midi_voice_offset + poly_mode);
 				break;
 
 			// Update globals (1/2)
-			case 7:	
+			case 9:	
 				update_global_1();
 				break;
 
 			// Update globals (2/2)
-			case 8:
+			case 10:
 				update_global_2();
 				break;
 				
 			// AMP EG 0
-			case 9:
+			case 11:
 				usynth_eg_update(&voices[0].amp_eg);
 				break;
 
 			// AMP EG 1
-			case 10:
+			case 12:
 				usynth_eg_update(&voices[1].amp_eg);
 				break;
 
 			// MOD EG 0 
-			case 11:
+			case 13:
 				usynth_eg_update(&voices[0].mod_eg);
 				break;
 
 			// MOD EG 1
-			case 12:
+			case 14:
 				usynth_eg_update(&voices[1].mod_eg);
 				break;
 
 			// LFO 0
-			case 13:
+			case 15:
 				usynth_lfo_update(&voices[0].lfo);
 				break;
 
 			// LFO 1
-			case 14:
+			case 16:
 				usynth_lfo_update(&voices[1].lfo);
 				break;
 
 			// Update modulation 0
-			case 15:
+			case 17:
 				voice_update_mod(&voices[0]);
 				break;
 
 			// Update modulation 1
-			case 16:
+			case 18:
 				voice_update_mod(&voices[1]);
 				break;
 
 			// LEDs and counter reset
-			case 17:
+			case 19:
 				if (voices[0].amp_eg.output >> 8)
 					PORTD |= (1 << LED_RED_PIN);
 				else
