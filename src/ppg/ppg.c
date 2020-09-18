@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <avr/pgmspace.h>
+#include <avr/eeprom.h>
 
 /**
 	Load a wavetable stored in PPG Wave 2.2 format into an array of wavetable_entry structs of size wavetable_size
@@ -19,8 +20,8 @@ const uint8_t *ppg_load_wavetable(ppg_wavetable_entry *entries, uint8_t wavetabl
 	uint8_t waveform, pos;
 	do
 	{
-		waveform = pgm_read_byte(data++);
-		pos = pgm_read_byte(data++);
+		waveform = eeprom_read_byte(data++);
+		pos = eeprom_read_byte(data++);
 
 		entries[pos].ptr_l = ppg_get_waveform_pointer(waveform);
 		entries[pos].ptr_r = NULL;
@@ -72,7 +73,7 @@ const uint8_t *ppg_load_wavetable(ppg_wavetable_entry *entries, uint8_t wavetabl
 //! \see load_wavetable()
 const uint8_t *ppg_load_wavetable_n(ppg_wavetable_entry *entries, uint8_t wavetable_size, const uint8_t *data, uint8_t index)
 {
-	uint16_t offset = pgm_read_word(&ppg_wavetable_offsets[index]);
+	uint16_t offset = eeprom_read_word(&ppg_wavetable_offsets[index]);
 	ppg_load_wavetable(entries, wavetable_size, data + offset);
 	return data;
 }
