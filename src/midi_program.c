@@ -3,58 +3,6 @@
 #include "midi.h"
 #include "midi_cc.h"
 
-#define MIDI_PARAM_PROGRAM_BEGIN     0xff
-#define MIDI_PARAM_PROGRAM_TABLE_END 0xfe
-#define MIDI_PROGRAM_BEGIN(id) {MIDI_PARAM_PROGRAM_BEGIN, (id)}
-#define MIDI_PROGRAM_TABLE_END() {MIDI_PARAM_PROGRAM_TABLE_END, 0}
-#define MIDI_BOTH (1 << 7)
-
-// Table forward declaration
-static const midi_program_data midi_program_table[] PROGMEM;
-
-/**
-	Loads MIDI preset
-*/
-void midi_program_load(midi_status *midi, uint8_t id)
-{
-	// Load defaults before loading anything
-	if (id != 0xff)
-		midi_program_load(midi, 0xff);
-
-	const midi_program_data *ptr;
-	uint8_t param = 0;
-	uint8_t value = 0;
-	uint8_t found = 0;
-
-	for (ptr = midi_program_table; param != MIDI_PARAM_PROGRAM_TABLE_END; ptr++)
-	{
-		param = pgm_read_byte(&ptr->param);
-		value = pgm_read_byte(&ptr->value);
-		
-		// If on desired program label, start writing
-		// If already writing, break
-		if (param == MIDI_PARAM_PROGRAM_BEGIN)
-		{
-			if (found)
-				break;
-			else if (value == id)
-				found = 1;
-		}
-		else if (found)
-		{
-			// If the highest bit is set, the next CC is set as well
-			// Handy when setting CC pairs
-			midi->control[param & 0x7f] = value & 0x7f;
-			if (param & MIDI_BOTH)
-				midi->control[(param & 0x7f) + 1] = value & 0x7f;
-		}
-	}
-
-	// On succesful load
-	if (found)
-		midi->program = id;
-}
-
 /**
 	Default MIDI programs
 
@@ -62,7 +10,7 @@ void midi_program_load(midi_status *midi, uint8_t id)
 	because those are reserved for MIDI_PROGRAM_BEGIN
 	and MIDI_PROGRAM_TABLE_END
 */
-static const midi_program_data midi_program_table[] PROGMEM =
+const midi_program_data midi_program_table[] PROGMEM =
 {
 	// The defaults loaded before loading any program
 	MIDI_PROGRAM_BEGIN(0xff),
