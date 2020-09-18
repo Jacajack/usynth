@@ -3,4 +3,5 @@ src/**/*.o
 src/**/*.d
 src/**/*.s
 src/**/*.lss
+src/**/*.map
 .vscode
