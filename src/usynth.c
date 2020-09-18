@@ -179,22 +179,18 @@ static inline void voice_update(usynth_voice *v, uint8_t cc_set, uint8_t midi_vo
 static inline void voice_update_mod(usynth_voice *v)
 {
 	int16_t mod = v->base_wave;
-	int8_t eg_mod = (v->eg_mod_int * (int8_t)(v->mod_eg.output >> 9)) >> 7; // TODO Fix modulation intensity to cover 256
-	int8_t lfo_mod = (v->lfo_mod_int * (int8_t)(v->lfo.output >> 8)) >> 7;
-	mod += eg_mod;
-	mod += lfo_mod;
-	mod = 32 + (mod >> 2);
+	mod += (v->eg_mod_int * (int8_t)(v->mod_eg.output >> 9)) >> 5;
+	mod += (v->lfo_mod_int * (int8_t)(v->lfo.output >> 8)) >> 6;
 
-	// Clamp
-	if (mod < 0) mod = 0;
-	else if (mod > PPG_DEFAULT_WAVETABLE_SIZE - 1) mod = PPG_DEFAULT_WAVETABLE_SIZE - 1;
-	v->osc.wave = mod;
+	// The -128 - 127 range is mapped to 0 - 64
+	mod = 32 + (mod >> 2);
+	v->osc.wave = CLAMP(mod, 0, PPG_DEFAULT_WAVETABLE_SIZE - 1);
 }
 
 /**
 	Updates global/common synth state
 */
-static inline void update_global(void)
+static inline void update_global_1(void)
 {
 	// Resets phase of all LFOs
 	if (MIDI_CTL(MIDI_LFO_RESET))
@@ -207,15 +203,21 @@ static inline void update_global(void)
 	// Filter control
 	filter_cutoff = MIDI_CTL(MIDI_CUTOFF) >> 1;
 
+	// Clear 'triggered' gate bits
+	midi_clear_trig_bits(&midi);
+}
+
+/**
+	Updates global state - handles mono/poly switching and cluster operation
+*/
+static inline void update_global_2(void)
+{
 	// Mono/poly and cluster logic
 	uint8_t cluster_size = CLAMP(MIDI_CTL(MIDI_CLUSTER_SIZE), 1, MIDI_MAX_VOICES / 2);
 	uint8_t cluster_id = MIN(MIDI_CTL(MIDI_CLUSTER_ID), cluster_size - 1);
 	poly_mode = MIDI_CTL(MIDI_POLY) != 0;
 	midi.voice_count = (poly_mode + 1) * cluster_size;
 	midi_voice_offset = (poly_mode + 1) * cluster_id;
-
-	// Clear 'triggered' gate bits
-	midi_clear_trig_bits(&midi);
 }
 
 int main(void)
@@ -313,53 +315,58 @@ int main(void)
 				voice_update(&voices[1], !poly_mode, midi_voice_offset + poly_mode);
 				break;
 
-			// Update global/common controls
+			// Update globals (1/2)
 			case 7:	
-				update_global();
+				update_global_1();
+				break;
+
+			// Update globals (2/2)
+			case 8:
+				update_global_2();
 				break;
 				
 			// AMP EG 0
-			case 8:
+			case 9:
 				usynth_eg_update(&voices[0].amp_eg);
 				break;
 
 			// AMP EG 1
-			case 9:
+			case 10:
 				usynth_eg_update(&voices[1].amp_eg);
 				break;
 
 			// MOD EG 0 
-			case 10:
+			case 11:
 				usynth_eg_update(&voices[0].mod_eg);
 				break;
 
 			// MOD EG 1
-			case 11:
+			case 12:
 				usynth_eg_update(&voices[1].mod_eg);
 				break;
 
 			// LFO 0
-			case 12:
+			case 13:
 				usynth_lfo_update(&voices[0].lfo);
 				break;
 
 			// LFO 1
-			case 13:
+			case 14:
 				usynth_lfo_update(&voices[1].lfo);
 				break;
 
 			// Update modulation 0
-			case 14:
+			case 15:
 				voice_update_mod(&voices[0]);
 				break;
 
 			// Update modulation 1
-			case 15:
+			case 16:
 				voice_update_mod(&voices[1]);
 				break;
 
 			// LEDs and counter reset
-			case 16:
+			case 17:
 				if (voices[0].amp_eg.output >> 8)
 					PORTD |= (1 << LED_RED_PIN);
 				else
@@ -371,10 +378,6 @@ int main(void)
 					PORTD &= ~(1 << LED_YLW_PIN);
 
 				load_balancer_cnt = 0;
-				break;
-
-			// Empty steps
-			default:
 				break;
 		}
 
