@@ -4,6 +4,10 @@
 #include <inttypes.h>
 #include <avr/pgmspace.h>
 
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define CLAMP(x, min, max) MAX(MIN((x), (max)), (min))
+
 //! Safe int8_t add (no overflow and underflow)
 static inline int8_t safe_add_8(int8_t a, int8_t b)
 {

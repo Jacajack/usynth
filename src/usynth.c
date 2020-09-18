@@ -76,19 +76,6 @@ ISR(TIMER1_COMPB_vect)
 	dac_sent = 1;
 }
 
-typedef struct usynth_voice
-{
-	ppg_osc osc;
-	usynth_eg amp_eg;
-	usynth_eg mod_eg;
-	usynth_lfo lfo;
-	int8_t base_wave;
-	int8_t eg_mod_int;
-	int8_t lfo_mod_int;
-	uint8_t wavetable_number;
-} usynth_voice;
-
-
 // Synth globals
 static usynth_voice voices[2];
 static filter1pole filter;
@@ -137,8 +124,7 @@ static inline void voice_update_cc_2(usynth_voice *v, uint8_t cc_set)
 	// Loads wavetable when it changes
 	if (v->wavetable_number != MIDI_CTL(MIDI_OSC_WAVETABLE(cc_set)))
 	{
-		v->wavetable_number = MIDI_CTL(MIDI_OSC_WAVETABLE(cc_set));
-		v->wavetable_number = v->wavetable_number >= PPG_WAVETABLE_COUNT ? PPG_WAVETABLE_COUNT - 1 : v->wavetable_number;
+		v->wavetable_number = MIN(MIDI_CTL(MIDI_OSC_WAVETABLE(cc_set)), PPG_WAVETABLE_COUNT - 1);
 
 		// Write back to the MIDI controls array, so the wavetable
 		// is not reloaded over and over if it's out of range
@@ -177,12 +163,9 @@ static inline void voice_update(usynth_voice *v, uint8_t cc_set, uint8_t midi_vo
 	int16_t note = (int16_t)midi.voices[midi_voice].note + MIDI_CTL(MIDI_OSC_PITCH(cc_set)) - 64;
 	note <<= 5;
 	note += (int16_t)(midi.pitchbend >> 7) - 64 + MIDI_CTL(MIDI_OSC_DETUNE(cc_set)) - 64;
-	
-	// Clamp
-	if (note < 0) note = 0;
-	else if (note >= 128 * 32) note = 128 * 32 - 1;
+	note = CLAMP(note, 0, 128 * 32 - 1);
 
-	v->osc.phase_step = 1 + pgm_read_delta_word(notes_table, note);
+	v->osc.phase_step = pgm_read_delta_word(notes_table, note);
 	v->amp_eg.gate = midi.voices[midi_voice].gate;
 	v->mod_eg.gate = midi.voices[midi_voice].gate;
 	v->lfo.gate = midi.voices[midi_voice].gate;
