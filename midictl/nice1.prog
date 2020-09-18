@@ -1,0 +1,34 @@
+100	1	# LFO sync to key
+101	0	# LFO reset
+102	0	# Poly mode
+103	121	# Cutoff
+111	63	# Debug
+20	19	# Wavetable
+22	41	# Base wave
+24	63	# Detune
+26	63	# Volume
+28	64	# Pitch
+21	3	# Wavetable
+23	33	# Base wave
+25	63	# Detune
+27	63	# Volume
+29	52	# Pitch
+30	0	# Attack
+32	63	# Sustain
+34	96	# Release
+36	0	# Sustain enabled
+40	0	# Attack
+42	127	# Sustain
+44	111	# Release
+46	0	# Sustain enabled
+48	120	# Modulation intensity
+50	63	# Pitch modulation
+60	80	# Rate
+64	63	# Fade
+66	64	# Modulation intensity
+68	63	# Pitch modulation
+62	0	# Wave
+31	13	# Attack
+33	127	# Sustain
+35	107	# Release
+37	0	# Sustain enabled
