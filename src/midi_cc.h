@@ -11,7 +11,6 @@
 #define MIDI_OSC_WAVETABLE(n)   MIDI_CC_PAIR(n, 20)
 #define MIDI_OSC_BASE_WAVE(n)   MIDI_CC_PAIR(n, 22)
 #define MIDI_OSC_DETUNE(n)      MIDI_CC_PAIR(n, 24)
-#define MIDI_OSC_VOLUME(n)      MIDI_CC_PAIR(n, 26)
 #define MIDI_OSC_PITCH(n)       MIDI_CC_PAIR(n, 28)
 
 // Amplifier envelope controls

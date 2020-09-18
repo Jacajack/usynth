@@ -70,7 +70,6 @@ static const midi_program_data midi_program_table[] PROGMEM =
 	{MIDI_BOTH | MIDI_OSC_BASE_WAVE(0),    64 },
 	{MIDI_BOTH | MIDI_OSC_DETUNE(0),       64 },
 	{MIDI_BOTH | MIDI_OSC_PITCH(0),        64 },
-	{MIDI_BOTH | MIDI_OSC_VOLUME(0),       127},
 
 	{MIDI_BOTH | MIDI_AMP_A(0),            0  },
 	{MIDI_BOTH | MIDI_AMP_S(0),            127},
