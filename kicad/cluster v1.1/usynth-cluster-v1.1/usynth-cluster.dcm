@@ -1,0 +1,135 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP LMH6609MF
+D 900MHz Voltage Feedback Op Amp, SOT-23-5
+K opamp single wideband unity-gain stable
+F http://www.ti.com/lit/ds/symlink/lmh6609.pdf
+$ENDCMP
+#
+$CMP LMH6702MF
+D 1.7 GHz Ultra-Low Distortion Wideband Op Amp, SOT-23-5
+K opamp single low distortion wideband
+F http://www.ti.com/lit/ds/symlink/lmh6702.pdf
+$ENDCMP
+#
+$CMP LPV811DBV
+D Single operational amplifier, 8kHz GBW, 425 nA/channel quiescent, 100 fA input bias, 300 uV offset max, 1 uV/C, SOT-23-5
+K single opamp low-power rail-to-rail
+F https://www.ti.com/lit/ds/symlink/lpv812.pdf
+$ENDCMP
+#
+$CMP LT6015xS5
+D 3.2MHz, 0.8V/us, Low Power, Over-The-Top Precision Op Amp, SOT-23-5
+K single opamp
+F https://www.analog.com/media/en/technical-documentation/data-sheets/601567ff.pdf
+$ENDCMP
+#
+$CMP MCP6001-OT
+D 1MHz, Low-Power Op Amp, SOT-23-5
+K single opamp
+F http://ww1.microchip.com/downloads/en/DeviceDoc/21733j.pdf
+$ENDCMP
+#
+$CMP MCP601-xOT
+D Single 2.7V to 6.0V Single Supply CMOS Op Amps, SOT-23-5
+K single opamp
+F http://ww1.microchip.com/downloads/en/DeviceDoc/21314g.pdf
+$ENDCMP
+#
+$CMP MCP6401T-xOT
+D 1 MHz, 45 µA Op Amps, SOT-23-5
+K single opamp
+F http://ww1.microchip.com/downloads/en/devicedoc/22229d.pdf
+$ENDCMP
+#
+$CMP MCP6L01x-xOT
+D Single, 1 MHz, 85µA, Rail-to-Rail input and output, SOT-23-5
+K opamp vfa rtr r2r
+F http://ww1.microchip.com/downloads/en/devicedoc/22140b.pdf
+$ENDCMP
+#
+$CMP MCP6L91T-EOT
+D 10 MHz, 850 µA Op Amps, SOT-23-5
+K single opamp
+F http://ww1.microchip.com/downloads/en/DeviceDoc/22141b.pdf
+$ENDCMP
+#
+$CMP OPA196xDBV
+D Single, Low-Power, Low Offset Voltage, Rail-to-Rail Operational Amplifier, SOT-23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa4196.pdf
+$ENDCMP
+#
+$CMP OPA197xDBV
+D Single 36V, Precision, Rail-to-Rail Input/Output, Low Offset Voltage, Operational Amplifier, SOT-23
+K single opamp rtor
+F http://www.ti.com/lit/ds/symlink/opa197.pdf
+$ENDCMP
+#
+$CMP OPA330xxDBV
+D 50μV V OS, 0.25μV/°C, 35μA CMOS OPERATIONAL AMPLIFIERS, Zerø-Drift Series, SOT
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa330.pdf
+$ENDCMP
+#
+$CMP OPA333xxDBV
+D Single 1.8V, microPower, CMOS Operational Amplifiers, Zero-Drift Series, SOT-23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa333.pdf
+$ENDCMP
+#
+$CMP OPA340NA
+D Single Single-Supply, Rail-to-Rail Operational Amplifier, MicroAmplifier Series, SOT-23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa340.pdf
+$ENDCMP
+#
+$CMP OPA356xxDBV
+D Single High Speed CMOS Operational Amplifier, SOT-23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa356.pdf
+$ENDCMP
+#
+$CMP OPA376xxDBV
+D Single Low-Noise, Low Quiescent Current, Precision Operational Amplifier e-trim Series, SOT-23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa376.pdf
+$ENDCMP
+#
+$CMP OPA842xDBV
+D 200MHz, Low Distortion, Unity-Gain Stable, Voltage Feedback Operational Amplifier, SOT23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa842.pdf
+$ENDCMP
+#
+$CMP OPA843xDBV
+D 800MHz, Wideband, Low Distortion, Medium Gain, Voltage-Feedback Operational Amplifier, SOT-23-5
+K single opamp low distortion
+F http://www.ti.com/lit/ds/symlink/opa843.pdf
+$ENDCMP
+#
+$CMP OPA846xDBV
+D 1750MHz, Wideband, Low-Noise, Voltage Feedback Operational Amplifier, SOT23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/opa846.pdf
+$ENDCMP
+#
+$CMP TLV2371DBV
+D Rail-to-Rail Input/Output Operational Amplifier, SOT-23-5
+K single opamp
+F http://www.ti.com/lit/ds/symlink/tlv2375.pdf
+$ENDCMP
+#
+$CMP TS881xLx
+D Rail-to-rail 0.9V nanopower comparator, SOT-23-5
+K single comparator
+F www.st.com/resource/en/datasheet/ts881.pdf
+$ENDCMP
+#
+$CMP TSV911xxLx
+D Single rail-to-rail input/output 8 MHz operational amplifiers, SOT-23-5
+K single opamp
+F www.st.com/resource/en/datasheet/tsv911.pdf
+$ENDCMP
+#
+#End Doc Library
