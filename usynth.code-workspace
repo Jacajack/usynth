@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.vsh": "glsl",
+			"*.vs": "glsl",
+			"*.fsh": "glsl",
+			"*.fs": "glsl",
+			"*.tes": "glsl",
+			"*.tcs": "glsl",
+			"*.gsh": "glsl",
+			"*.gs": "glsl",
+			"*.cl": "c",
+			"tensor": "c"
+		}
+	}
+}
