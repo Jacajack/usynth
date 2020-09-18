@@ -38,8 +38,10 @@
 // Common controls
 #define MIDI_LFO_SYNC           100
 #define MIDI_LFO_RESET          101
-#define MIDI_POLY               102
+#define MIDI_POLY               102 // Mono vs. 2-voice polyphony
 #define MIDI_CUTOFF             103
+#define MIDI_CLUSTER_SIZE       104  // Size of the synthesizer cluster
+#define MIDI_CLUSTER_ID         105  // Position in cluster
 
 // Debug
 #define MIDI_DEBUG_CHANNEL      111
