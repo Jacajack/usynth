@@ -34,6 +34,13 @@ typedef struct midi_voice
 
 typedef struct midi_status
 {
+	// MIDI controllers
+	uint8_t control[128];
+
+	// Per voice controls
+	midi_voice voices[MIDI_MAX_VOICES];
+	uint8_t voice_count;
+
 	// Internal state of the interpreter
 	uint8_t dlim;
 	uint8_t dcnt;
@@ -41,17 +48,9 @@ typedef struct midi_status
 	uint8_t channel;
 	uint8_t dbuf[4];
 
-	// Per voice controls
-	midi_voice voices[MIDI_MAX_VOICES];
-	uint8_t voice_count;
-
 	// Basic MIDI controls
 	uint8_t program;
 	uint16_t pitchbend;
-	uint8_t reset;
-
-	// MIDI controllers
-	uint8_t control[128];
 } midi_status;
 
 
@@ -65,6 +64,7 @@ extern void midi_program_load(midi_status *midi, uint8_t id);
 	Finds an empty voice slot and uses it or overwrites the oldest
 	active slot
 */
+static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocity) __attribute__((always_inline));
 static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocity)
 {
 	uint8_t oldest_empty_slot = MIDI_MAX_VOICES;
@@ -109,6 +109,7 @@ static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocit
 /**
 	Handles Note OFF events
 */
+static inline void midi_note_off(midi_status *midi, uint8_t note) __attribute__((always_inline));
 static inline void midi_note_off(midi_status *midi, uint8_t note)
 {
 	for (uint8_t i = 0; i < MIDI_MAX_VOICES; i++)
@@ -118,24 +119,17 @@ static inline void midi_note_off(midi_status *midi, uint8_t note)
 
 static inline void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t channel)
 {
-	uint8_t dlim, dcnt, status;
-
-	// Get configuration from the struct
-	dlim = midi->dlim;
-	dcnt = midi->dcnt;
-	status = midi->status;
-
-	// Handle synthesizer reset
-	if (byte == 0xff) midi->reset = 1;
+	uint8_t dlim = midi->dlim;
+	uint8_t dcnt = midi->dcnt;
+	uint8_t status = midi->status;
 
 	if (byte & (1 << 7)) // Handle status bytes
 	{
 		// Extract information from status byte
 		status = byte & 0x70;
-		dcnt = dlim = 0;
 		midi->channel = byte & 0x0f;
 
-		const static uint8_t dlim_table[16] = 
+		const static uint8_t dlim_table[16] __attribute__((aligned(16))) = 
 		{
 			[0] = 2, // Note off
 			[1] = 2, // Note on
@@ -150,10 +144,10 @@ static inline void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t ch
 	else if (midi->channel == channel) // Handle data bytes
 	{
 		// Data byte
-		midi->dbuf[dcnt++] = byte;
+		midi->dbuf[dcnt] = byte;
 
 		// Interpret command
-		if (dcnt >= dlim)
+		if (++dcnt == dlim)
 		{
 			switch (status)
 			{
@@ -181,9 +175,6 @@ static inline void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t ch
 				case 0x60:
 					midi->pitchbend = midi->dbuf[0] | (midi->dbuf[1] << 7);
 					break;
-
-				default:
-					break;
 			}
 
 			dcnt = 0;
@@ -191,7 +182,7 @@ static inline void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t ch
 
 	}
 
-	// Write config back to the struct
+	// Write status back to the struct
 	midi->dlim = dlim;
 	midi->dcnt = dcnt;
 	midi->status = status;
