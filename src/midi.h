@@ -135,40 +135,17 @@ static inline void midi_process_byte(midi_status *midi, uint8_t byte, uint8_t ch
 		dcnt = dlim = 0;
 		midi->channel = byte & 0x0f;
 
-		// Check data length for each MIDI command
-		switch (status)
+		const static uint8_t dlim_table[16] = 
 		{
-			// Note on
-			case 0x10:
-				dlim = 2;
-				break;
+			[0] = 2, // Note off
+			[1] = 2, // Note on
+			[3] = 2, // CC change
+			[4] = 1, // Program change
+			[6] = 2, // Pitch change
+		};
 
-			// Note off
-			case 0x00:
-				dlim = 2;
-				break;
-
-			// Controller change
-			case 0x30:
-				dlim = 2;
-				break;
-
-			// Program change
-			case 0x40:
-				dlim = 1;
-				break;
-
-			// Pitch
-			case 0x60:
-				dlim = 2;
-				break;
-
-			// Uknown command
-			default:
-				dlim = 0;
-				break;
-
-		}
+		dcnt = 0;
+		dlim = dlim_table[status >> 4];
 	}
 	else if (midi->channel == channel) // Handle data bytes
 	{
