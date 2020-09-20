@@ -15,7 +15,6 @@ void midi_init(midi_status *midi, uint8_t voice_count)
 
 	midi->program = 0;
 	midi->pitchbend = 8192;
-	midi->reset = 0;
 
 	memset(midi->voices, 0, sizeof(midi_voice) * MIDI_MAX_VOICES);
 	memset(midi->control, 0, 128);
