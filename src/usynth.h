@@ -37,6 +37,8 @@ typedef struct usynth_voice
 	int8_t base_wave;
 	int8_t eg_mod_int;
 	int8_t lfo_mod_int;
+	int8_t eg_pitch_int;
+	int8_t lfo_pitch_int;
 	uint8_t wavetable_number;
 } usynth_voice;
 

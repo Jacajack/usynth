@@ -8,7 +8,7 @@ PROGRAMMER = usbasp
 CC = avr-gcc
 OBJDUMP = avr-objdump
 DEFINES = -DF_CPU=$(F_CPU) -DMIDI_BAUD=$(MIDI_BAUD) -DF_SAMPLE=$(F_SAMPLE) -DMIDI_MAX_VOICES=$(MIDI_MAX_VOICES)
-CFLAGS = $(DEFINES) -mmcu=$(MCU) -O3 -funroll-loops -g -fdata-sections -ffunction-sections -Wl,--gc-sections -fomit-frame-pointer -faggressive-loop-optimizations -flto -mrelax -Wall
+CFLAGS = $(DEFINES) -mmcu=$(MCU) -O3 -funroll-loops -g -fdata-sections -ffunction-sections -Wl,--gc-sections -fomit-frame-pointer -faggressive-loop-optimizations -flto -mrelax -Wall -fwrapv
 
 SOURCES = usynth.c midi.c midi_program.c data/notes_table.c data/env_table.c ppg/ppg_data.c ppg/ppg.c
 OBJECTS = $(patsubst %.c,%.o,$(SOURCES))
