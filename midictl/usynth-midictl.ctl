@@ -25,13 +25,13 @@
 44 Release
 46 [slider = 0, max = 1] Sustain enabled
 48 [def = 64] Modulation intensity
-# 50 Pitch modulation
+50 Pitch modulation
 
 --- LFO 1
 60 Rate
 64 Fade
 66 [def = 64] Modulation intensity
-# 68 Pitch modulation
+68 Pitch modulation
 62 [max = 1, slider = 0] Wave
 
 --- Oscillator 2
@@ -52,11 +52,11 @@
 45 Release
 47 [slider = 0, max = 1] Sustain enabled
 49 [def = 64] Modulation intensity
-# 50 Pitch modulation
+51 Pitch modulation
 
 --- LFO 2
 61 Rate
 65 Fade
 67 [def = 64] Modulation intensity
-# 69 Pitch modulation
+69 Pitch modulation
 63 [max = 1, slider = 0] Wave
