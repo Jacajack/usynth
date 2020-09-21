@@ -87,6 +87,7 @@ static uint8_t midi_voice_offset = 0;
 	Updates voice state based on MIDI control parameters (part 1)
 	\param cc_set determines from which MIDI CC set to update
 */
+static inline void voice_update_cc_1(usynth_voice *v, uint8_t cc_set) __attribute__((always_inline));
 static inline void voice_update_cc_1(usynth_voice *v, uint8_t cc_set)
 {
 	v->base_wave = MIDI_CTL_S8(MIDI_OSC_BASE_WAVE(cc_set));
@@ -165,6 +166,7 @@ static inline void voice_update_gate(usynth_voice *v, uint8_t cc_set, uint8_t mi
 	\param cc_set determines from which MIDI CC set to update
 	\param midi_voice determines polyphony voice ID to use
 */
+static inline void voice_update_note(usynth_voice *v, uint8_t cc_set, uint8_t midi_note) __attribute__((always_inline));
 static inline void voice_update_note(usynth_voice *v, uint8_t cc_set, uint8_t midi_note)
 {
 	int16_t note = (int16_t)midi_note + MIDI_CTL(MIDI_OSC_PITCH(cc_set)) - 64 - 4; // Subtract 4 here intead of subtracting 128 later
@@ -172,7 +174,10 @@ static inline void voice_update_note(usynth_voice *v, uint8_t cc_set, uint8_t mi
 	note += (int16_t)(midi.pitchbend >> 7) + MIDI_CTL(MIDI_OSC_DETUNE(cc_set));
 	note += (v->eg_pitch_int * (int8_t)(v->mod_eg.output >> 9)) >> 3;
 	note += (v->lfo_pitch_int * (int8_t)(v->lfo.output >> 8)) >> 4;
-	note = CLAMP(note, 0, 128 * 32 - 1);
+	
+	// Equivalent of CLAMP(note, 0, 128 * 32 - 1)
+	note = note < 0 ? 0 : note;
+	note &= 4095;
 	v->osc.phase_step = pgm_read_delta_word(notes_table, note);
 }
 
