@@ -208,6 +208,15 @@ static inline void update_global_1(void)
 		usynth_lfo_sync(&voices[1].lfo);	
 	}
 
+	// Handle ping requests
+	if (MIDI_CTL(MIDI_PING))
+	{
+		// Transmit one byte of ping response
+		while (!(UCSR0A & (1 << UDRE0)));
+		UDR0 = MIDI_CTL(MIDI_PING);
+		MIDI_CTL(MIDI_PING) = 0;
+	}
+
 	// Filter control
 	filter_cutoff = MIDI_CTL(MIDI_CUTOFF) >> 1;
 
