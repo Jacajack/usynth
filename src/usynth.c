@@ -110,6 +110,9 @@ static inline void voice_update_cc_1(usynth_voice *v, uint8_t cc_set)
 */
 static inline void voice_update_cc_2(usynth_voice *v, uint8_t cc_set)
 {
+	v->eg_pitch_int = (int8_t)MIDI_CTL(MIDI_EG_PITCH_INT(cc_set)) - 64;
+	v->lfo_pitch_int = (int8_t)MIDI_CTL(MIDI_LFO_PITCH_INT(cc_set)) - 64;
+
 	v->lfo.step = MIDI_CTL_U8(MIDI_LFO_RATE(cc_set)) << 1;
 	v->lfo.waveform = MIDI_CTL(MIDI_LFO_WAVE(cc_set));
 	v->lfo.fade_step = pgm_read_word(env_table + MIDI_CTL(MIDI_LFO_FADE(cc_set)));
@@ -128,15 +131,14 @@ static inline void voice_update_cc_2(usynth_voice *v, uint8_t cc_set)
 }
 
 /**
-	Updates voice's oscillator.
-	Also responsible for retrigerring EGs/LFOs
+	Updates voice's gate - retriggers LFO and EGs and propagates gate value to them.
 	\param cc_set determines from which MIDI CC set to update
 	\param midi_voice determines polyphony voice ID to use
 */
-static inline void voice_update(usynth_voice *v, uint8_t cc_set, uint8_t midi_voice)
+static inline void voice_update_gate(usynth_voice *v, uint8_t cc_set, uint8_t midi_gate)
 {
 	// Executed once on keypress
-	if (midi.voices[midi_voice].gate & MIDI_GATE_TRIG_BIT)
+	if (midi_gate & MIDI_GATE_TRIG_BIT)
 	{
 		// Reset EGs
 		v->amp_eg.status = USYNTH_EG_IDLE;
@@ -153,15 +155,25 @@ static inline void voice_update(usynth_voice *v, uint8_t cc_set, uint8_t midi_vo
 			usynth_lfo_sync(&v->lfo);
 	}
 
-	int16_t note = (int16_t)midi.voices[midi_voice].note + MIDI_CTL(MIDI_OSC_PITCH(cc_set)) - 64;
-	note <<= 5;
-	note += (int16_t)(midi.pitchbend >> 7) - 64 + MIDI_CTL(MIDI_OSC_DETUNE(cc_set)) - 64;
-	note = CLAMP(note, 0, 128 * 32 - 1);
+	v->amp_eg.gate = midi_gate;
+	v->mod_eg.gate = midi_gate;
+	v->lfo.gate = midi_gate;
+}
 
+/**
+	Updates voice's frequency based on MIDI note and all modulation sources
+	\param cc_set determines from which MIDI CC set to update
+	\param midi_voice determines polyphony voice ID to use
+*/
+static inline void voice_update_note(usynth_voice *v, uint8_t cc_set, uint8_t midi_note)
+{
+	int16_t note = (int16_t)midi_note + MIDI_CTL(MIDI_OSC_PITCH(cc_set)) - 64 - 4; // Subtract 4 here intead of subtracting 128 later
+	note <<= 5; // Now we operate on 100/32 cents
+	note += (int16_t)(midi.pitchbend >> 7) + MIDI_CTL(MIDI_OSC_DETUNE(cc_set));
+	note += (v->eg_pitch_int * (int8_t)(v->mod_eg.output >> 9)) >> 3;
+	note += (v->lfo_pitch_int * (int8_t)(v->lfo.output >> 8)) >> 4;
+	note = CLAMP(note, 0, 128 * 32 - 1);
 	v->osc.phase_step = pgm_read_delta_word(notes_table, note);
-	v->amp_eg.gate = midi.voices[midi_voice].gate;
-	v->mod_eg.gate = midi.voices[midi_voice].gate;
-	v->lfo.gate = midi.voices[midi_voice].gate;
 }
 
 /**
@@ -265,10 +277,10 @@ int main(void)
 	while (1)
 	{
 		/*
-			Distribute workload evenly across each 20 samples
+			Distribute workload evenly across each 21 samples
 			
-			31250 / 8 / 28000 * 20 = ~2.8 which means that reading
-			MIDI data bytes in the loop is sufficient
+			31250 / 8 / 28000 * 20 = ~2.92 which means that reading
+			3 MIDI data bytes in the loop is sufficient
 		*/
 		switch (load_balancer_cnt++)
 		{
@@ -310,68 +322,77 @@ int main(void)
 				voice_update_cc_2(&voices[1], !poly_mode);
 				break;
 
-			// Update control parameters 0
+			// Update control parameters 0, 1
 			case 7:
-				voice_update(&voices[0], 0, midi_voice_offset);
+				voice_update_gate(&voices[0], 0, midi.voices[midi_voice_offset].gate);
+				voice_update_gate(&voices[1], !poly_mode, midi.voices[midi_voice_offset + poly_mode].gate);
 				break;
 			
-			// Update control parameters 1
+			// Update frequency (Voice 1)
 			case 8:
-				voice_update(&voices[1], !poly_mode, midi_voice_offset + poly_mode);
+				voice_update_note(&voices[0], 0, midi.voices[midi_voice_offset].note);
+				break;
+
+			// Update frequency (Voice 2)
+			case 9:
+				if (poly_mode)
+					voice_update_note(&voices[1], 0, midi.voices[midi_voice_offset + poly_mode].note);
+				else
+					voice_update_note(&voices[1], 1, midi.voices[midi_voice_offset + poly_mode].note);
 				break;
 
 			// Update globals (1/2)
-			case 9:	
+			case 10:	
 				update_global_1();
 				break;
 
 			// Update globals (2/2)
-			case 10:
+			case 11:
 				update_global_2();
 				break;
 				
 			// AMP EG 0
-			case 11:
+			case 12:
 				usynth_eg_update(&voices[0].amp_eg);
 				break;
 
 			// AMP EG 1
-			case 12:
+			case 13:
 				usynth_eg_update(&voices[1].amp_eg);
 				break;
 
 			// MOD EG 0 
-			case 13:
+			case 14:
 				usynth_eg_update(&voices[0].mod_eg);
 				break;
 
 			// MOD EG 1
-			case 14:
+			case 15:
 				usynth_eg_update(&voices[1].mod_eg);
 				break;
 
 			// LFO 0
-			case 15:
+			case 16:
 				usynth_lfo_update(&voices[0].lfo);
 				break;
 
 			// LFO 1
-			case 16:
+			case 17:
 				usynth_lfo_update(&voices[1].lfo);
 				break;
 
 			// Update modulation 0
-			case 17:
+			case 18:
 				voice_update_mod(&voices[0]);
 				break;
 
 			// Update modulation 1
-			case 18:
+			case 19:
 				voice_update_mod(&voices[1]);
 				break;
 
 			// LEDs and counter reset
-			case 19:
+			case 20:
 				if (voices[0].amp_eg.output >> 8)
 					PORTD |= (1 << LED_RED_PIN);
 				else
