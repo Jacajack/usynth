@@ -4,4 +4,5 @@ src/**/*.d
 src/**/*.s
 src/**/*.lss
 src/**/*.map
+src/data/presets/*.h
 .vscode

@@ -42,42 +42,7 @@ const midi_program_data midi_program_table[] PROGMEM =
 	{MIDI_POLY,      1 },
 	{MIDI_CUTOFF,    64},
 
-
-	// Program 0 - some kind of marimba
-	MIDI_PROGRAM_BEGIN(0),
-	// {MIDI_WAVETABLE,    2},
-	// {MIDI_BASE_WAVE,    0},
-	
-	// {MIDI_AMP_ATTACK,   0},
-	// {MIDI_AMP_SUSTAIN,  127},
-	// {MIDI_AMP_RELEASE,  91},
-	// {MIDI_AMP_ASR,      1},
-	
-	// {MIDI_MOD_ATTACK,   0},
-	// {MIDI_MOD_SUSTAIN,  90},
-	// {MIDI_MOD_RELEASE,  76},
-	// {MIDI_MOD_ASR,      0},
-	// {MIDI_MOD_EG_INT,  127},
-
-
-	// Program 1 - Morpher
-	MIDI_PROGRAM_BEGIN(1),
-	// {MIDI_WAVETABLE,    9},
-	// {MIDI_BASE_WAVE,    102},
-	
-	// {MIDI_AMP_ATTACK,   15},
-	// {MIDI_AMP_SUSTAIN,  127},
-	// {MIDI_AMP_RELEASE,  108},
-	// {MIDI_AMP_ASR,      1},
-	
-	// {MIDI_MOD_ATTACK,   0},
-	// {MIDI_MOD_SUSTAIN,  127},
-	// {MIDI_MOD_RELEASE,  114},
-	// {MIDI_MOD_ASR,      0},
-	// {MIDI_MOD_EG_INT,   0},
-
-	// {MIDI_CUTOFF,       104},
-
+#include "data/presets/generated.h"
 
 	MIDI_PROGRAM_TABLE_END(),
 };
