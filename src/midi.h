@@ -7,6 +7,20 @@
 #error MIDI_MAX_VOICES is not defined
 #endif
 
+#if !defined(MIDI_POLY_REPLACE_OLDEST) && !defined(MIDI_POLY_REPLACE_NEWEST)
+#define MIDI_POLY_REPLACE_OLDEST
+#endif
+
+#ifdef MIDI_POLY_REPLACE_OLDEST 
+#define MIDI_AGE_COMP(x, y) ((x) > (y))
+#define MIDI_WORST_AGE (-1)
+#endif
+
+#ifdef MIDI_POLY_REPLACE_NEWEST
+#define MIDI_AGE_COMP(x, y) ((x) < (y))
+#define MIDI_WORST_AGE 127
+#endif
+
 // Gate states
 #define MIDI_GATE_ON_BIT   (1 << 0)
 #define MIDI_GATE_TRIG_BIT (1 << 1)
@@ -67,10 +81,10 @@ extern void midi_program_load(midi_status *midi, uint8_t id);
 static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocity) __attribute__((always_inline));
 static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocity)
 {
-	uint8_t oldest_empty_slot = MIDI_MAX_VOICES;
-	uint8_t oldest_active_slot = 0;
-	int8_t oldest_empty = -1;
-	int8_t oldest_active = -1;
+	uint8_t best_empty_slot = MIDI_MAX_VOICES;
+	uint8_t best_active_slot = 0;
+	int8_t best_empty = MIDI_WORST_AGE;
+	int8_t best_active = MIDI_WORST_AGE;
 
 	for (uint8_t i = 0; i < midi->voice_count; i++)
 	{
@@ -78,18 +92,18 @@ static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocit
 
 		if (midi->voices[i].gate)
 		{
-			if (age > oldest_active)
+			if (MIDI_AGE_COMP(age, best_active))
 			{
-				oldest_active_slot = i;
-				oldest_active = midi->voices[i].age;
+				best_active_slot = i;
+				best_active = midi->voices[i].age;
 			}
 		}
 		else 
 		{
-			if (age > oldest_empty)
+			if (MIDI_AGE_COMP(age, best_empty))
 			{
-				oldest_empty_slot = i;
-				oldest_empty = age;
+				best_empty_slot = i;
+				best_empty = age;
 			}
 		}
 	}
@@ -99,7 +113,7 @@ static inline void midi_note_on(midi_status *midi, uint8_t note, uint8_t velocit
 		midi->voices[i].age++;
 
 	// Always prefer empty slot over reuse
-	uint8_t slot = oldest_empty_slot == MIDI_MAX_VOICES ? oldest_active_slot : oldest_empty_slot;
+	uint8_t slot = best_empty_slot == MIDI_MAX_VOICES ? best_active_slot : best_empty_slot;
 	midi->voices[slot].gate = MIDI_GATE_ON_BIT | MIDI_GATE_TRIG_BIT;
 	midi->voices[slot].note = note;
 	midi->voices[slot].velocity = velocity;
