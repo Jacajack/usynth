@@ -1,0 +1,45 @@
+100	0	# LFO sync to key
+101	0	# LFO reset
+102	1	# Poly mode
+103	63	# Cutoff
+111	63	# Debug
+104	1	# Cluster size
+105	3	# ID in cluster
+20	12	# Wavetable
+22	127	# Base wave
+28	64	# Pitch
+24	64	# Detune
+30	1	# Attack
+32	62	# Sustain
+34	79	# Release
+36	1	# Sustain enabled
+40	91	# Attack
+42	127	# Sustain
+44	91	# Release
+46	0	# Sustain enabled
+48	37	# Modulation intensity
+50	64	# Pitch modulation
+60	63	# Rate
+64	63	# Fade
+66	64	# Modulation intensity
+68	64	# Pitch modulation
+62	0	# Wave
+21	14	# Wavetable
+23	64	# Base wave
+29	64	# Pitch
+25	64	# Detune
+31	63	# Attack
+33	63	# Sustain
+35	63	# Release
+37	0	# Sustain enabled
+41	63	# Attack
+43	63	# Sustain
+45	63	# Release
+47	0	# Sustain enabled
+49	64	# Modulation intensity
+51	63	# Pitch modulation
+61	63	# Rate
+65	63	# Fade
+67	64	# Modulation intensity
+69	63	# Pitch modulation
+63	0	# Wave
