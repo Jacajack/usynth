@@ -18,13 +18,14 @@ Features:
  
 MIDI controller mappings can be found [here](https://github.com/Jacajack/usynth/blob/master/midictl/usynth-midictl.ctl). If you're on Linux, you can load that file directly into [midictl](https://github.com/Jacajack/midictl) and use it to control µsynth right away.
 
+If you want to build your own µsynth, the schematic is available in the [`hw`](https://github.com/Jacajack/usynth/tree/master/hw) directory.
+
 See demo on YouTube:<br>
 [![Demo](http://img.youtube.com/vi/hL-aASeibNs/0.jpg)](https://www.youtube.com/watch?v=hL-aASeibNs "µsynth demo")
 
-
 ## A bit of technical background
 
-The microcontroller is running at 20MHz (max allowed frequency at 5V). By default it's programmed to work with MCP4921 - a 10-bit SPI DAC and output samples at frequency of 28kHz. MIDI commands are received via UART0 at 31250 baud. Pins PD2, PD3 and PD4 are meant to drive status LEDs. I won't go into much detail here, because I think the source code is documented quite well.
+The microcontroller is running at 20MHz (max allowed frequency at 5V). By default it's programmed to work with MCP4921 - a 12-bit SPI DAC and output samples at frequency of 28kHz. MIDI commands are received via UART0 at 31250 baud. Pins PD2, PD3 and PD4 are meant to drive status LEDs. I won't go into much detail here, because I think the source code is documented quite well.
 
 The code is written _mostly_ in C. There are some bits in the AVR assembly language responsible for more sophisticated multiplication, but that's it. The chip is utilized pretty well with ~99% flash and ~77% RAM usage. 
 
