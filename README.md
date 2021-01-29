@@ -19,7 +19,7 @@ Features:
 MIDI controller mappings can be found [here](https://github.com/Jacajack/usynth/blob/master/midictl/usynth-midictl.ctl). If you're on Linux, you can load that file directly into [midictl](https://github.com/Jacajack/midictl) and use it to control µsynth right away.
 
 See demo on YouTube:<br>
-[![Demo](http://img.youtube.com/vi/hL-aASeibNs/0.jpg)](http://www.youtube.com/watch?v=YhL-aASeibNs "µsynth demo")
+[![Demo](http://img.youtube.com/vi/hL-aASeibNs/0.jpg)](https://www.youtube.com/watch?v=hL-aASeibNs "µsynth demo")
 
 
 ## A bit of technical background
