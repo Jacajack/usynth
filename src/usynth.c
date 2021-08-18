@@ -42,7 +42,11 @@ static volatile uint16_t dac_data = 0;
 static volatile uint8_t dac_sent = 0;
 ISR(TIMER1_COMPB_vect)
 {
-	// CS is automatically set low
+	// CS is automatically set low, but LDAC needs to be forced high
+	TCCR1A |= (1 << COM1A0);
+	TCCR1C |= (1 << FOC1A);
+	TCCR1A &= ~(1 << COM1A1);
+
 	const uint16_t mcp4921_conf = MCP4921_SHDN_BIT | MCP4921_GAIN_BIT | MCP4921_VREF_BUF_BIT;
 	uint16_t data = mcp4921_conf | (dac_data >> 4);
 	
@@ -52,17 +56,17 @@ ISR(TIMER1_COMPB_vect)
 	SPDR = data;
 	while (!(SPSR & (1 << SPIF)));
 	
+	// Force compare event to set CS high
+	TCCR1A |= (1 << COM1B0);
+	TCCR1C |= (1 << FOC1B);
+	TCCR1A &= ~(1 << COM1B1);
+	
 	// Check incoming USART data and buffer it
 	// No need for a while loop here - this interrupt
 	// is frequent enough
 	if (UCSR0A & (1 << RXC0))
 		midi_buffer[midi_wcnt++] = UDR0;
 
-	// Force compare event to set CS high
-	TCCR1A = (1 << COM1B0) | (1 << COM1B1);
-	TCCR1C |= (1 << FOC1B);
-	TCCR1A = (1 << COM1B1);
-	
 	// Set sent flag, so the main loop can work again
 	dac_sent = 1;
 }
@@ -248,25 +252,27 @@ int main(void)
 	SPCR = (1 << SPE) | (1 << MSTR);
 	SPSR = (1 << SPI2X);
 	
-	// LDAC tied low, CS is used as word clock
-	PORTB &= ~(1 << LDAC_PIN);
-	
 	/*
 		TIMER 1 - CTC mode, F_CPU
 
 		- Clear OC1B (CS) on compare
+		- Clear OC1A (LDAC) on compare
 		- COMP1B ISR active
+
+		Event:    COMPB       FORCE
+		__   _______|    ISR    |__________
+		CS          |___________|
+
+		Event:      FORCE           COMPA
+		____          |_______________|
+		LDAC _________|               |____
 	*/
+	TCCR1A = (1 << COM1A1) | (1 << COM1B1);
 	TCCR1B = (1 << WGM12) | (1 << CS10);
 	TIMSK1 = (1 << OCIE1B);
  	OCR1A = F_CPU / F_SAMPLE - 1;
- 	OCR1B = 0;
+ 	OCR1B = 4; // Determines LDAC pulse width (must be over 100ns)
 	
-	// Set CS high and enable 'clear on compare'
-	TCCR1A = (1 << COM1B0) | (1 << COM1B1);
-	TCCR1C |= (1 << FOC1B);
-	TCCR1A = (1 << COM1B1);
-
 	// USART0 - MIDI, 8 bit data, 1 bit stop, no parity
 	UBRR0 = F_CPU / 16 / MIDI_BAUD - 1;
 	UCSR0B = (1 << RXEN0) | (1 << TXEN0);
