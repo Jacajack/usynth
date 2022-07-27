@@ -32,6 +32,9 @@ prog: usynth.elf
 prog_fast: usynth.elf
 	avrdude -V -c $(PROGRAMMER) -p $(MCU) -U flash:w:$^ -U eeprom:w:$^
 
+prog_fuse:
+	avrdude -c $(PROGRAMMER) -p $(MCU) -U lfuse:w:0xff:m -U hfuse:w:0xd1:m -U efuse:w:0xff:m 
+
 -include $(DEPENDS)
 
 %.o: %.c makefile
